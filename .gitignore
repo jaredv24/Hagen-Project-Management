@@ -6,6 +6,7 @@ web/.env.local
 node_modules/
 web/dist/
 web/node_modules/
+web/tsconfig.tsbuildinfo
 
 __pycache__/
 *.pyc
