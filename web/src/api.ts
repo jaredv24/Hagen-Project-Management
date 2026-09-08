@@ -8,14 +8,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers: options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json", ...options.headers } : options.headers,
   });
   if (!res.ok) {
-    let message = res.statusText;
+    let message = res.statusText || `HTTP ${res.status}`;
     try {
       const body = await res.json();
       message = body.detail || message;
     } catch {
       /* no JSON body */
     }
-    throw new Error(message);
+    throw new Error(`${path}: ${message}`);
   }
   if (res.status === 204) return undefined as T;
   return res.json();
