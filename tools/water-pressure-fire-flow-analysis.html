@@ -1,0 +1,1275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Water Pressure &amp; Fire Flow Analysis</title>
+<style>
+  :root{
+    --navy:#1F3864;
+    --navy-text:#BDD7EE;
+    --blue:#2E75B6;
+    --blue-light:#DDEBF7;
+    --input-bg:#FFF2CC;
+    --input-border:#D6B656;
+    --input-text:#0000FF;
+    --ink:#1a1a1a;
+    --muted:#666666;
+    --line:#d6dde5;
+    --bg:#f4f6f9;
+    --panel:#ffffff;
+    --green-bg:#E2F3E5;
+    --green-text:#1E7B34;
+    --red-bg:#FCE4E4;
+    --red-text:#B4231E;
+    --amber-bg:#FDF0DA;
+    --amber-text:#9C6500;
+    --radius:8px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:0; background:var(--bg); color:var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size:14px; line-height:1.4;
+  }
+  .app-header{
+    background:linear-gradient(135deg,var(--navy),#14294a);
+    color:#fff; padding:22px 24px 18px;
+  }
+  .app-header h1{ margin:0 0 4px; font-size:22px; letter-spacing:.3px; }
+  .app-header p{ margin:0; color:var(--navy-text); font-size:13px; }
+  .app-header .badges{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+  .app-header .badges span{
+    background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25);
+    padding:3px 9px; border-radius:20px; font-size:11px; color:#dfe9f5;
+  }
+
+  .tabs{
+    display:flex; overflow-x:auto; background:#12233f; position:sticky; top:0; z-index:20;
+    border-bottom:3px solid var(--blue);
+  }
+  .tab-btn{
+    background:transparent; border:none; color:#c9d6e6; padding:12px 16px;
+    font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap;
+    border-bottom:3px solid transparent; margin-bottom:-3px; transition:.15s;
+  }
+  .tab-btn:hover{ background:rgba(255,255,255,.06); color:#fff; }
+  .tab-btn.active{ color:#fff; border-bottom-color:#ffb238; background:rgba(255,255,255,.06); }
+
+  main{ max-width:1180px; margin:0 auto; padding:20px 16px 60px; }
+  .sheet{ display:none; }
+  .sheet.active{ display:block; }
+
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    margin-bottom:18px; overflow:hidden; box-shadow:0 1px 2px rgba(20,30,50,.04);
+  }
+  .panel-title{
+    background:var(--navy); color:#fff; font-weight:700; font-size:13px;
+    padding:9px 14px; letter-spacing:.3px;
+  }
+  .panel-title.blue{ background:var(--blue); }
+  .panel-body{ padding:14px 16px; }
+  .panel-note{ padding:8px 16px 14px; color:var(--muted); font-size:11.5px; }
+
+  .field-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px 18px; }
+  .field{ display:flex; flex-direction:column; gap:3px; }
+  .field label{ font-size:11.5px; font-weight:600; color:#333; }
+  .field .hint{ font-size:10.5px; color:var(--muted); font-style:italic; }
+  .field input[type=text], .field input[type=number], .field input[type=date], .field select{
+    border:1px solid var(--input-border); background:var(--input-bg); color:var(--input-text);
+    padding:6px 8px; border-radius:5px; font-size:13px; font-family:inherit; width:100%;
+  }
+  .field input:focus, .field select:focus{ outline:2px solid var(--blue); outline-offset:1px; }
+  .unit-suffix{ display:flex; align-items:center; gap:6px; }
+  .unit-suffix input, .unit-suffix select{ flex:1; }
+  .unit-suffix span{ font-size:11.5px; color:var(--muted); min-width:28px; }
+
+  .readout{
+    background:var(--blue-light); border:1px solid #b9d4ea; border-radius:5px;
+    padding:6px 8px; font-weight:700; font-family:var(--mono); font-size:13px; color:#0b3c6b;
+  }
+  .readout.big{ font-size:16px; }
+  .status-pass, .status-good{ background:var(--green-bg)!important; color:var(--green-text)!important; border-color:#bfe3c6!important; }
+  .status-fail, .status-bad{ background:var(--red-bg)!important; color:var(--red-text)!important; border-color:#f0c4c4!important; }
+  .status-warn{ background:var(--amber-bg)!important; color:var(--amber-text)!important; border-color:#f0ddb0!important; }
+
+  table.data-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  table.data-table th, table.data-table td{ border:1px solid var(--line); padding:5px 6px; text-align:center; }
+  table.data-table th{ background:var(--blue); color:#fff; font-weight:600; font-size:11px; }
+  table.data-table td.lbl{ text-align:left; font-weight:600; background:#fafcfe; }
+  table.data-table input, table.data-table select{
+    width:100%; border:1px solid var(--input-border); background:var(--input-bg); color:var(--input-text);
+    padding:4px; border-radius:4px; font-size:12px; text-align:center; font-family:inherit;
+  }
+  table.data-table td.computed{ background:var(--blue-light); font-family:var(--mono); font-weight:700; color:#0b3c6b; }
+  table.data-table tr.totals td{ background:#eef3f8; font-weight:700; }
+
+  .overflow-x{ overflow-x:auto; }
+
+  .study-point-header{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; margin-bottom:12px; }
+
+  .summary-row{ display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed var(--line); font-size:13px; }
+  .summary-row:last-child{ border-bottom:none; }
+  .summary-row .lbl{ color:#333; }
+  .summary-row .val{ font-weight:700; font-family:var(--mono); }
+
+  .status-banner{
+    text-align:center; padding:12px; border-radius:6px; font-weight:800; font-size:15px; letter-spacing:.3px;
+  }
+
+  .grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:820px){ .grid-3{ grid-template-columns:1fr; } }
+
+  .sp-card{ border:1px solid var(--line); border-radius:6px; padding:10px; background:#fbfdff; }
+  .sp-card h4{ margin:0 0 8px; font-size:12px; color:var(--navy); }
+
+  .note-box{ background:#fff8e6; border:1px solid #f0dca0; border-radius:6px; padding:10px 12px; font-size:12px; color:#665318; }
+  .note-box.blue{ background:#eef6ff; border-color:#bcdcfb; color:#1a4e7a; }
+
+  ol.rec-list{ margin:6px 0 0 18px; padding:0; }
+  ol.rec-list li{ margin-bottom:4px; }
+
+  .chart-wrap{ background:#fff; border:1px solid var(--line); border-radius:6px; padding:10px; }
+  svg text{ font-family:inherit; }
+
+  footer{ text-align:center; color:var(--muted); font-size:11px; padding:20px; }
+
+  @media print{
+    .tabs{ display:none; }
+    .sheet{ display:block !important; page-break-after:always; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>Water Pressure &amp; Fire Flow Analysis</h1>
+  <p>Hazen-Williams Head Loss &amp; Residual Pressure Calculator — converted from the original engineering workbook</p>
+  <div class="badges">
+    <span>NC Fire Code (2015 IFC) Appendix B</span>
+    <span>15A NCAC 18C .0409</span>
+    <span>Live recalculation</span>
+  </div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<main id="main"></main>
+
+<footer>All values recalculate automatically as you type, mirroring the original spreadsheet's formulas. Reference-only — verify fire-flow requirements and any code amendments with the local AHJ.</footer>
+
+<script>
+/* =========================================================================
+   DATA / CONSTANTS
+   ========================================================================= */
+const MATERIAL_C = {
+  'PVC (new)':150, 'PVC (design/aged)':130, 'DIP (new)':140, 'DIP (design/aged)':120,
+  'Cast Iron (new)':130, 'Cast Iron (old)':80, 'HDPE':140, 'Concrete':120, 'Galvanized Steel':120
+};
+const MATERIAL_OPTIONS = Object.keys(MATERIAL_C);
+const DEV_TYPE_OPTIONS = ['Single-Family Residential','Multi-Family / Apartments','Commercial / Retail','Industrial / Warehouse','Mixed-Use','Other'];
+const CONSTRUCTION_TYPE_OPTIONS = ['Type I-A','Type I-B','Type II-A','Type II-B','Type III-A','Type III-B','Type IV','Type V-A','Type V-B'];
+const SPRINKLER_OPTIONS = ['None','NFPA 13 (Commercial)','NFPA 13R (Residential Mid-Rise)','NFPA 13D (1&2 Family Dwelling)'];
+const BACKFLOW_OPTIONS = ['RPZ (10-15 psi)','DCVA (3-5 psi)','None'];
+
+// Table B105.1(2) lookup helper (2015 IFC) — [I-A/I-B, II-A/III-A, IV/V-A, II-B/III-B, V-B] max area thresholds, and resulting fire flow (gpm)
+const IFC_TABLE = [
+  [22700,12700,8200,5900,3600,1500],
+  [30200,17000,10900,7900,4800,1750],
+  [38700,21800,12900,9800,6200,2000],
+  [48300,24200,17400,12600,7700,2250],
+  [59000,33200,21300,15400,9400,2500],
+  [70900,39700,25500,18400,11300,2750],
+  [83700,47100,30100,21800,13400,3000],
+  [97700,54900,35200,25900,15600,3250],
+  [112700,63400,40600,29300,18000,3500],
+  [128700,72400,46400,33500,20600,3750],
+  [145900,82100,52500,37900,23300,4000],
+  [164200,92400,59100,42700,26300,4250],
+  [183400,103100,66000,47700,29300,4500],
+  [203700,114600,73300,53000,32600,4750],
+  [225200,126700,81100,58600,36000,5000],
+  [247700,139400,89200,65400,39600,5250],
+  [271200,152600,97700,70600,43400,5500],
+  [295900,166500,106500,77000,47400,5750],
+  [1e9,1e9,115800,83700,51500,6000],
+  [1e9,1e9,125500,90600,55700,6250],
+  [1e9,1e9,135500,97900,60200,6500],
+  [1e9,1e9,145800,106800,64800,6750],
+  [1e9,1e9,156700,113200,69600,7000],
+  [1e9,1e9,167900,121300,74600,7250],
+  [1e9,1e9,179400,129600,79800,7500],
+  [1e9,1e9,191400,138300,85100,7750],
+  [1e9,1e9,1e9,1e9,1e9,8000]
+];
+const TABLE_B105_1_1 = [
+  ['0 - 3,600','1,000',1],['3,601 - 4,800','1,500',1],['4,801 - 6,200','1,750',1],
+  ['6,201 - 8,200','2,000',2],['8,201 - 10,000','2,250',2],['10,001 - 12,000','2,500',2]
+];
+const CONSTRUCTION_LEGEND = [
+  ['Type I-A','3-Hour','Noncombustible (steel/concrete)','Noncombustible 3-hr rated','Noncombustible 3-hr rated','High-rises, hospitals, large assembly. Highest fire resistance.'],
+  ['Type I-B','2-Hour','Noncombustible (steel/concrete)','Noncombustible 2-hr rated','Noncombustible 2-hr rated','Mid-rise offices, hotels, schools.'],
+  ['Type II-A','1-Hour','Noncombustible (steel/concrete)','Noncombustible 1-hr rated','Noncombustible 1-hr rated','Low-to-mid-rise commercial, strip malls.'],
+  ['Type II-B','0-Hour','Noncombustible (unprotected steel)','Noncombustible 0-hr rated','Noncombustible 0-hr rated','Warehouses, some retail. Unprotected bare steel.'],
+  ['Type III-A','1-Hour','Noncombustible ext; combustible interior','Noncombustible 2-hr rated','Combustible 1-hr rated','Older brick/masonry buildings, townhomes.'],
+  ['Type III-B','0-Hour','Noncombustible ext; combustible interior','Noncombustible 2-hr rated','Combustible 0-hr rated','Smaller mixed-use or older commercial.'],
+  ['Type IV','HT','Heavy timber (min. dimensions)','Noncombustible or HT','Heavy timber or noncombustible','"Heavy Timber" — glulam, CLT, post-and-beam. Mass timber.'],
+  ['Type V-A','1-Hour','Combustible (wood frame)','Combustible 1-hr rated','Combustible 1-hr rated','Apartments, townhomes, small commercial.'],
+  ['Type V-B','0-Hour','Combustible (wood frame)','Combustible 0-hr rated','Combustible 0-hr rated','Single-family homes, small apartments. Most common residential type.']
+];
+const DOMESTIC_ROWS_META = [
+  {label:'Single-Family Residential', factor:400},
+  {label:'Multi-Family / Apartments', factor:400},
+  {label:'Townhomes / Duplexes', factor:400},
+  {label:'Mobile Home Park', factor:250},
+  {label:'Office / Commercial (per 1,000 sf)', factor:100},
+  {label:'Restaurant (per seat)', factor:40},
+  {label:'Retail / Shopping (per 1,000 sf)', factor:100},
+  {label:'Hotel / Motel (per room)', factor:120},
+  {label:'School (per student)', factor:12},
+  {label:'Nursing Home (per bed)', factor:200},
+  {label:'Church (per seat)', factor:5},
+  {label:'Other (enter custom factor)', factor:0}
+];
+const NC_DEMAND_FACTORS = [
+  ['Residential (per connection)',400,'gpd/conn'],['Mobile Home Park',250,'gpd/space'],
+  ['Campground / RV Park',100,'gpd/space'],['Office Building',100,'gpd/1000sf'],
+  ['Restaurant (per seat)',40,'gpd/seat'],['Retail / Shopping',100,'gpd/1000sf'],
+  ['Hotel / Motel (per room)',120,'gpd/room'],['School (per student)',12,'gpd/student'],
+  ['Nursing Home (per bed)',200,'gpd/bed'],['Church (per seat)',5,'gpd/seat'],
+  ['Hospital (per bed)',300,'gpd/bed'],['Laundromat (per machine)',400,'gpd/machine'],
+  ['Daycare (per child)',15,'gpd/child'],['Country Club (per member)',100,'gpd/member']
+];
+const SUPPLY_CURVE_FLOWS = [0,250,500,750,1000,1250,1500,1750,2000,2500,3000,3500,4000,5000,6000];
+const ELEV_QUICK_REF = [
+  [1,3,1.3,41],[2,13,5.6,46],[3,23,10,50],[4,33,14.3,54],[5,43,18.6,59],[6,53,22.9,63]
+];
+
+function emptySegment(){ return {desc:'', material:'', diameter:'', length:'', flow:'', elevStart:'', elevEnd:''}; }
+function makeStudyPoint(){ return {location:'', hydrantId:'', segments:[emptySegment(),emptySegment(),emptySegment(),emptySegment(),emptySegment(),emptySegment()]}; }
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+const state = {
+  project: {
+    projectName:'', projectNumber:'', engineer:'', date:'', location:'',
+    testHydrantId:'', flowHydrantId:'', testDate:'', testedBy:'',
+    testHydrantElevation:'', staticPressure:'', residualPressure:'', flowAtResidual:'',
+    developmentType:'Multi-Family / Apartments', numberOfStories:4, buildingFootprintArea:15000,
+    constructionType:'Type V-A', sprinklerSystem:'NFPA 13 (Commercial)', minResidualPressure:20
+  },
+  domestic: {
+    rows: DOMESTIC_ROWS_META.map(m => ({ label:m.label, units:'', factor:m.factor })),
+    servicePopulation:400, peakHourFactor:1.5
+  },
+  headloss: {
+    fireFlowDemand:1000, peakDomesticDemand:250, masterMeterLoss:10, miscSystemLosses:0,
+    studyPoints:[makeStudyPoint(), makeStudyPoint(), makeStudyPoint()]
+  },
+  upperFloor: {
+    numberOfStories:3, floorToFloorHeight:10, buildingPadElevation:'',
+    riserDiameter:1.5, riserCFactor:130, flowToTopFloor:8,
+    domesticFlowToBuilding:25, bldgSupplyDiameter:2, bldgSupplyLength:200, bldgPipeCFactor:130,
+    waterMeterLoss:5, backflowLoss:12, backflowType:'RPZ (10-15 psi)', minAcceptablePressure:40
+  }
+};
+
+/* =========================================================================
+   HELPERS
+   ========================================================================= */
+function num(v){ if(v===''||v===null||v===undefined) return ''; const n=parseFloat(v); return isNaN(n)?'':n; }
+function isEmpty(v){ return v===''||v===null||v===undefined; }
+function fmt(v, d=2){ if(v===''||v===null||v===undefined||typeof v==='string') return (v===undefined?'—':v); if(!isFinite(v)) return '—'; return v.toFixed(d); }
+function fmtInt(v){ if(typeof v==='string') return v; if(!isFinite(v)) return '—'; return Math.round(v).toLocaleString(); }
+function getPath(obj, path){ return path.split('.').reduce((o,k)=> o==null?o:o[k], obj); }
+function setPath(obj, path, val){ const parts=path.split('.'); let o=obj; for(let i=0;i<parts.length-1;i++) o=o[parts[i]]; o[parts[parts.length-1]]=val; }
+
+/* =========================================================================
+   FORMULAS (ported from the original workbook)
+   ========================================================================= */
+function baseFireFlowLookup(constructionType, totalArea){
+  const col = (constructionType==='Type I-A'||constructionType==='Type I-B') ? 0
+            : (constructionType==='Type II-A'||constructionType==='Type III-A') ? 1
+            : (constructionType==='Type IV'||constructionType==='Type V-A') ? 2
+            : (constructionType==='Type II-B'||constructionType==='Type III-B') ? 3
+            : 4;
+  for(const row of IFC_TABLE){ if(row[col] >= totalArea) return row[5]; }
+  return IFC_TABLE[IFC_TABLE.length-1][5];
+}
+function sprinklerReduction(sys){
+  if(sys.indexOf('NFPA 13 ')===0) return 0.75;
+  if(sys.indexOf('NFPA 13R')===0) return 0.75;
+  if(sys.indexOf('NFPA 13D')===0) return 0.5;
+  return 0;
+}
+function calcRequiredFireFlow(sys, base, reduction){
+  if(sys==='None') return base;
+  if(sys.indexOf('NFPA 13D')===0) return Math.max(base*(1-reduction),500);
+  if(sys.indexOf('NFPA 13R')===0) return Math.max(base*(1-reduction),1500);
+  return Math.max(base*(1-reduction),1000);
+}
+function calcRequiredDuration(devType, base, sys, requiredFlow){
+  if(devType==='Single-Family Residential' && base===1000) return sys==='None' ? 1 : 0.5;
+  if(requiredFlow<=2750) return 2;
+  if(requiredFlow<=3750) return 3;
+  return 4;
+}
+function hwFrictionPer100(c, diameter, flow){
+  if(!c || !diameter || !flow) return '';
+  return 0.2083*Math.pow(100/c,1.852)*Math.pow(flow,1.852)/Math.pow(diameter,4.8655);
+}
+
+/* =========================================================================
+   RECALC
+   ========================================================================= */
+const computed = {};
+
+function recalc(){
+  const p = state.project;
+  const stories = num(p.numberOfStories), footprint = num(p.buildingFootprintArea);
+  const totalBuildingArea = p.developmentType==='Multi-Family / Apartments'
+      ? (stories===''||footprint===''?0:stories*footprint) : (footprint===''?0:footprint);
+
+  let baseFireFlow;
+  if(p.developmentType==='Single-Family Residential' && totalBuildingArea<=3600) baseFireFlow = 1000;
+  else baseFireFlow = baseFireFlowLookup(p.constructionType, totalBuildingArea);
+
+  const reduction = sprinklerReduction(p.sprinklerSystem);
+  const requiredFireFlow = calcRequiredFireFlow(p.sprinklerSystem, baseFireFlow, reduction);
+  const requiredDuration = calcRequiredDuration(p.developmentType, baseFireFlow, p.sprinklerSystem, requiredFireFlow);
+
+  const staticP = num(p.staticPressure), residP = num(p.residualPressure), flowAtResid = num(p.flowAtResidual);
+  const pressureDrop = (staticP===''||residP==='') ? '' : staticP-residP;
+  const availableFlow20 = (pressureDrop===''||pressureDrop===0) ? 'N/A'
+      : (flowAtResid===''?'':flowAtResid*Math.pow((staticP-20)/pressureDrop,0.54));
+  const pressureRatio = (staticP===''||staticP===0) ? 'N/A' : (residP===''?'':residP/staticP);
+
+  computed.project = { totalBuildingArea, baseFireFlow, reduction, requiredFireFlow, requiredDuration,
+    pressureDrop, availableFlow20, pressureRatio };
+
+  // Domestic demand estimator
+  const d = state.domestic;
+  let totalGpd=0, totalGpm=0;
+  const domRows = d.rows.map(r=>{
+    const units=num(r.units), factor=num(r.factor);
+    const gpd = (units===''||factor===''||units===0) ? 0 : units*factor;
+    const gpm = gpd===0?0:gpd/1440;
+    totalGpd+=gpd; totalGpm+=gpm;
+    return {gpd, gpm};
+  });
+  const pop = num(d.servicePopulation);
+  const peakingFactor = (pop===''||pop===0) ? 2.5 : (pop<=10000?2.5:2.0);
+  const peakDailyGpd = totalGpd*peakingFactor;
+  const peakDailyGpm = peakDailyGpd/1440;
+  const peakHourFactor = num(d.peakHourFactor)||0;
+  const peakHourGpm = peakDailyGpm*peakHourFactor;
+  const peakDomesticDemand = Math.round(peakHourGpm)||0;
+  computed.domestic = { domRows, totalGpd, totalGpm, peakingFactor, peakDailyGpd, peakDailyGpm, peakHourGpm, peakDomesticDemand };
+
+  // Head loss analysis
+  const hl = state.headloss;
+  const fireFlowDemand = num(hl.fireFlowDemand)||0, peakDomestic = num(hl.peakDomesticDemand)||0;
+  const totalDesignFlow = fireFlowDemand+peakDomestic;
+  const masterMeterLoss = num(hl.masterMeterLoss)||0, miscLosses = num(hl.miscSystemLosses)||0;
+  const adjustedResidual = (flowAtResid===''||flowAtResid===0||staticP===''||residP==='') ? 0
+      : staticP-(staticP-residP)*Math.pow(totalDesignFlow/flowAtResid,1.85);
+
+  const studyPoints = hl.studyPoints.map(sp=>{
+    let totalFrictionFt=0, totalElevFt=0;
+    const segs = sp.segments.map(seg=>{
+      const c = seg.material ? MATERIAL_C[seg.material] : '';
+      const diameter = num(seg.diameter), length=num(seg.length), flow=num(seg.flow);
+      const frictionPer100 = hwFrictionPer100(c, diameter, flow);
+      const segFriction = (frictionPer100===''||length===''||length===0) ? 0 : frictionPer100*length/100;
+      const elevStart = num(seg.elevStart), elevEnd = num(seg.elevEnd);
+      const elevLoss = (elevStart===''||elevEnd==='') ? 0 : elevEnd-elevStart;
+      totalFrictionFt += (typeof segFriction==='number'?segFriction:0);
+      totalElevFt += elevLoss;
+      return { cFactor:c, frictionPer100, segFriction, elevLoss };
+    });
+    const totalHeadLossFt = totalFrictionFt+totalElevFt;
+    const totalHeadLossPsi = totalHeadLossFt/2.31;
+    let residual = adjustedResidual - totalHeadLossPsi - masterMeterLoss - miscLosses;
+    if(!isFinite(residual)) residual = 0;
+    const minResidual = num(p.minResidualPressure)||0;
+    const status = residual>=minResidual ? 'PASS' : 'FAIL';
+    return { segs, totalFrictionFt, totalElevFt, totalHeadLossFt, totalHeadLossPsi, residual, status };
+  });
+  computed.headloss = { totalDesignFlow, adjustedResidual, studyPoints };
+
+  // Hydraulic supply curve
+  const designFlow = totalDesignFlow; // ='Head Loss Analysis'!J7
+  const pressureAtDesignFlow = (flowAtResid===''||flowAtResid===0) ? 0
+      : staticP-(staticP-residP)*Math.pow(designFlow/flowAtResid,1.85);
+  const curveRows = SUPPLY_CURVE_FLOWS.map(f=>{
+    const pressure = (flowAtResid===''||flowAtResid===0) ? 0 : Math.max(0, staticP-(staticP-residP)*Math.pow(f/flowAtResid,1.85));
+    const ratio = (flowAtResid===''||flowAtResid===0) ? 0 : Math.pow(f/flowAtResid,1.85);
+    const minResidual = num(p.minResidualPressure)||0;
+    const status = pressure>=minResidual ? 'Adequate' : 'Below Min';
+    return { flow:f, pressure, ratio, status };
+  });
+  const maxAvailableFlow20 = (pressureDrop===''||pressureDrop===0) ? 0
+      : (flowAtResid===''?0:flowAtResid*Math.pow((staticP-20)/pressureDrop,0.54));
+  computed.supplyCurve = { staticP, residP, flowAtResid, designFlow, pressureAtDesignFlow, curveRows, maxAvailableFlow20 };
+
+  // Upper floor pressure check
+  const uf = state.upperFloor;
+  const stories2 = num(uf.numberOfStories)||0, floorHeight = num(uf.floorToFloorHeight)||0;
+  const heightGradeToTop = (stories2-1)*floorHeight+3;
+  const riserLength = heightGradeToTop;
+  const staticAtHydrant = staticP===''?0:staticP;
+  const testHydrantElevProj = num(p.testHydrantElevation);
+  const padElev = num(uf.buildingPadElevation);
+  const elevChange = (testHydrantElevProj===''||padElev==='') ? 0 : padElev-testHydrantElevProj;
+  const elevHeadLossHydrantToPad = elevChange/2.31;
+  const riserDiameter = num(uf.riserDiameter)||0, riserCFactor=num(uf.riserCFactor)||0, flowToTop=num(uf.flowToTopFloor)||0;
+  const elevHeadLossRiser = riserDiameter/2.31; // matches original workbook formula (riser diameter / 2.31)
+  const riserFrictionPer100 = hwFrictionPer100(riserCFactor, riserDiameter, flowToTop);
+  const riserFriction = (riserFrictionPer100==='') ? 0 : riserFrictionPer100*riserLength/100/2.31;
+  const fittingLosses = riserFriction*0.2;
+  const totalBuildingInternalLoss = elevHeadLossRiser+riserFriction+fittingLosses;
+
+  const domFlowToBldg = num(uf.domesticFlowToBuilding)||0, bldgDia=num(uf.bldgSupplyDiameter)||0, bldgLen=num(uf.bldgSupplyLength)||0, bldgC=num(uf.bldgPipeCFactor)||0;
+  const bldgPipeFrictionPer100 = hwFrictionPer100(bldgC, bldgDia, domFlowToBldg);
+  const bldgPipeFriction = (bldgPipeFrictionPer100==='') ? 0 : bldgPipeFrictionPer100*bldgLen/100/2.31;
+
+  const waterMeterLoss = num(uf.waterMeterLoss)||0, backflowLoss = num(uf.backflowLoss)||0;
+  const pressureAtBuildingConnection = staticAtHydrant - Math.abs(elevHeadLossHydrantToPad) - Math.abs(bldgPipeFriction) - Math.abs(waterMeterLoss) - Math.abs(backflowLoss);
+  const pressureAtTopFloorFixture = pressureAtBuildingConnection - Math.abs(totalBuildingInternalLoss);
+  const minAcceptable = num(uf.minAcceptablePressure)||0;
+  const surplusDeficit = pressureAtTopFloorFixture - minAcceptable;
+  const ufStatus = pressureAtTopFloorFixture>=minAcceptable ? 'ADEQUATE — No Booster Required'
+      : (pressureAtTopFloorFixture>=30 ? 'MARGINAL — Booster Recommended' : 'INADEQUATE — Booster Required');
+  const boosterRequired = pressureAtTopFloorFixture<minAcceptable ? 'YES':'NO';
+  const minBoostRequired = pressureAtTopFloorFixture<minAcceptable ? (minAcceptable-pressureAtTopFloorFixture+10) : 'N/A';
+  const recommendedPumpDischarge = pressureAtTopFloorFixture<minAcceptable ? (pressureAtTopFloorFixture+minBoostRequired) : 'N/A';
+
+  computed.upperFloor = { heightGradeToTop, riserLength, elevChange, elevHeadLossHydrantToPad, elevHeadLossRiser,
+    riserFriction, fittingLosses, totalBuildingInternalLoss, bldgPipeFriction, pressureAtBuildingConnection,
+    pressureAtTopFloorFixture, surplusDeficit, ufStatus, boosterRequired, minBoostRequired, recommendedPumpDischarge };
+
+  // Results & recommendations
+  const residuals = studyPoints.map(s=>s.residual);
+  const worst = Math.min(...residuals);
+  const worstIdx = residuals.indexOf(worst);
+  const minResidual = num(p.minResidualPressure)||0;
+  const boosterRequiredMain = worst<minResidual ? 'YES — See Details Below' : 'No';
+  const minBoostMain = worst<minResidual ? (minResidual-worst+5) : 'N/A';
+  const availFlow = computed.project.availableFlow20;
+  const onSiteStorage = (typeof availFlow==='string') ? 'Likely — Available flow may be insufficient'
+      : (requiredFireFlow>availFlow ? 'Likely — Available flow may be insufficient' : 'Not likely based on available flow');
+  const overallStatus = worst>=minResidual ? 'PASS — ADEQUATE PRESSURE AT ALL STUDY POINTS' : 'FAIL — INADEQUATE PRESSURE';
+  computed.results = { worst, worstIdx, boosterRequiredMain, minBoostMain, onSiteStorage, overallStatus, surplus: worst-minResidual };
+
+  render();
+}
+
+/* =========================================================================
+   DOM BUILD
+   ========================================================================= */
+const SHEETS = [
+  {id:'project', title:'Project & Test Data'},
+  {id:'domestic', title:'Domestic Demand Estimator'},
+  {id:'headloss', title:'Head Loss Analysis'},
+  {id:'supply', title:'Hydraulic Supply Curve'},
+  {id:'upperfloor', title:'Upper Floor Pressure Check'},
+  {id:'results', title:'Results & Recommendations'},
+  {id:'ifc', title:'IFC Reference Tables'}
+];
+
+function el(tag, attrs={}, children=[]){
+  const e = document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs)){
+    if(k==='class') e.className=v;
+    else if(k==='html') e.innerHTML=v;
+    else if(k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k,v);
+  }
+  (Array.isArray(children)?children:[children]).forEach(c=>{ if(c!=null) e.appendChild(typeof c==='string'?document.createTextNode(c):c); });
+  return e;
+}
+
+function bindInput(input, path, {isNumber=true}={}){
+  input.value = getPath(state, path);
+  input.addEventListener('input', ()=>{
+    setPath(state, path, isNumber ? (input.value===''?'':input.value) : input.value);
+    recalc();
+  });
+  return input;
+}
+
+function textField(label, path, opts={}){
+  const wrap = el('div',{class:'field'});
+  wrap.appendChild(el('label',{},label));
+  const input = el('input',{type: opts.type||'text', placeholder:opts.placeholder||''});
+  bindInput(input, path, {isNumber:false});
+  wrap.appendChild(input);
+  if(opts.hint) wrap.appendChild(el('div',{class:'hint'}, opts.hint));
+  return wrap;
+}
+
+function numberField(label, path, opts={}){
+  const wrap = el('div',{class:'field'});
+  wrap.appendChild(el('label',{},label));
+  if(opts.unit){
+    const row = el('div',{class:'unit-suffix'});
+    const input = el('input',{type:'number', step:opts.step||'any'});
+    bindInput(input, path);
+    row.appendChild(input);
+    row.appendChild(el('span',{},opts.unit));
+    wrap.appendChild(row);
+  } else {
+    const input = el('input',{type:'number', step:opts.step||'any'});
+    bindInput(input, path);
+    wrap.appendChild(input);
+  }
+  if(opts.hint) wrap.appendChild(el('div',{class:'hint'}, opts.hint));
+  return wrap;
+}
+
+function selectField(label, path, options, opts={}){
+  const wrap = el('div',{class:'field'});
+  wrap.appendChild(el('label',{},label));
+  const select = el('select',{});
+  options.forEach(o=> select.appendChild(el('option',{value:o},o)));
+  select.value = getPath(state, path);
+  select.addEventListener('change', ()=>{ setPath(state, path, select.value); recalc(); });
+  wrap.appendChild(select);
+  if(opts.hint) wrap.appendChild(el('div',{class:'hint'}, opts.hint));
+  return wrap;
+}
+
+function readoutField(label, id, opts={}){
+  const wrap = el('div',{class:'field'});
+  wrap.appendChild(el('label',{},label));
+  const box = el('div',{class:'readout'+(opts.big?' big':''), id});
+  wrap.appendChild(box);
+  return wrap;
+}
+
+/* ---- Project & Test Data ---- */
+function buildProjectSheet(){
+  const c = el('div',{});
+  const info = el('div',{class:'panel'});
+  info.appendChild(el('div',{class:'panel-title'},'PROJECT INFORMATION'));
+  const infoBody = el('div',{class:'panel-body field-grid'});
+  infoBody.appendChild(textField('Project Name','project.projectName'));
+  infoBody.appendChild(textField('Project Number','project.projectNumber'));
+  infoBody.appendChild(textField('Engineer','project.engineer'));
+  infoBody.appendChild(textField('Date','project.date',{type:'date'}));
+  infoBody.appendChild(textField('Location / Address','project.location'));
+  info.appendChild(infoBody);
+  c.appendChild(info);
+
+  const test = el('div',{class:'panel'});
+  test.appendChild(el('div',{class:'panel-title'},'FIRE FLOW TEST DATA'));
+  const testBody = el('div',{class:'panel-body field-grid'});
+  testBody.appendChild(textField('Test Hydrant ID','project.testHydrantId'));
+  testBody.appendChild(textField('Flow Hydrant ID','project.flowHydrantId'));
+  testBody.appendChild(textField('Test Date','project.testDate',{type:'date'}));
+  testBody.appendChild(textField('Tested By','project.testedBy'));
+  test.appendChild(testBody);
+  c.appendChild(test);
+
+  const results = el('div',{class:'panel'});
+  results.appendChild(el('div',{class:'panel-title'},'TEST RESULTS'));
+  const resultsBody = el('div',{class:'panel-body field-grid'});
+  resultsBody.appendChild(numberField('Test Hydrant Elevation','project.testHydrantElevation',{unit:'ft'}));
+  resultsBody.appendChild(numberField('Static Pressure','project.staticPressure',{unit:'psi'}));
+  resultsBody.appendChild(numberField('Residual Pressure','project.residualPressure',{unit:'psi'}));
+  resultsBody.appendChild(numberField('Flow (Q) at Residual','project.flowAtResidual',{unit:'gpm'}));
+  resultsBody.appendChild(readoutField('Pressure Drop (psi)','out-pressureDrop'));
+  resultsBody.appendChild(readoutField('Available Flow @ 20 psi (gpm)','out-availableFlow20'));
+  resultsBody.appendChild(readoutField('Pressure Ratio','out-pressureRatio'));
+  results.appendChild(resultsBody);
+  results.appendChild(el('div',{class:'panel-note'},'Note: Ratio > 0.90 = good capacity. < 0.75 may indicate undersized mains.'));
+  c.appendChild(results);
+
+  const dev = el('div',{class:'panel'});
+  dev.appendChild(el('div',{class:'panel-title'},'DEVELOPMENT TYPE & FIRE FLOW REQUIREMENTS'));
+  const devBody = el('div',{class:'panel-body field-grid'});
+  devBody.appendChild(selectField('Development Type','project.developmentType',DEV_TYPE_OPTIONS));
+  devBody.appendChild(numberField('Number of Stories','project.numberOfStories',{unit:'stories'},true));
+  devBody.appendChild(numberField('Building Footprint Area','project.buildingFootprintArea',{unit:'sq ft'}));
+  devBody.appendChild(readoutField('Total Building Area (sq ft)','out-totalBuildingArea'));
+  devBody.appendChild(selectField('Construction Type','project.constructionType',CONSTRUCTION_TYPE_OPTIONS));
+  devBody.appendChild(selectField('Sprinkler System','project.sprinklerSystem',SPRINKLER_OPTIONS));
+  devBody.appendChild(readoutField('Base Fire Flow — IFC (gpm)','out-baseFireFlow'));
+  devBody.appendChild(readoutField('Sprinkler Reduction','out-sprinklerReduction'));
+  devBody.appendChild(readoutField('Required Fire Flow — Adjusted (gpm)','out-requiredFireFlow',{big:true}));
+  devBody.appendChild(readoutField('Required Duration (hrs)','out-requiredDuration'));
+  devBody.appendChild(numberField('Min Residual Pressure','project.minResidualPressure',{unit:'psi'}));
+  dev.appendChild(devBody);
+  dev.appendChild(el('div',{class:'panel-note'},'Per 2018 NC Fire Code (2015 IFC) Appendix B, Table B105.2 — buildings other than 1 & 2 family dwellings: a full NFPA 13 system (903.3.1.1) reduces required fire-flow to 25% of the Table B105.1(2) value, min 1,000 gpm. NFPA 13R (903.3.1.2): 25% of value, min 1,500 gpm. NFPA 13D applies only to 1 & 2 family / townhouses (Table B105.1(1)), min 500 gpm. A full NFPA 13 system yields a LOWER fire-flow floor (1,000) than 13R (1,500). Appendix B is enforceable only where adopted by the local AHJ — verify adoption and any NC amendments. Flow duration is read from Table B105.1(2) at the REDUCED flow rate.'));
+  c.appendChild(dev);
+
+  return c;
+}
+
+/* ---- Domestic Demand Estimator ---- */
+function buildDomesticSheet(){
+  const c = el('div',{});
+  c.appendChild(el('div',{class:'note-box blue'},'Per 15A NCAC 18C .0409 — Service Connections & Design Criteria'));
+  c.appendChild(document.createElement('br'));
+
+  const panel = el('div',{class:'panel'});
+  panel.appendChild(el('div',{class:'panel-title'},'DEMAND BY LAND USE / CONNECTION TYPE'));
+  const body = el('div',{class:'panel-body overflow-x'});
+  const table = el('table',{class:'data-table'});
+  table.appendChild(el('tr',{},[
+    el('th',{},'Land Use / Connection Type'), el('th',{},'Number of Units'), el('th',{},'Demand Factor (gpd/unit)'),
+    el('th',{},'Avg Daily Demand (gpd)'), el('th',{},'Avg Daily Demand (gpm)')
+  ]));
+  state.domestic.rows.forEach((row,i)=>{
+    const tr = el('tr',{});
+    tr.appendChild(el('td',{class:'lbl'}, row.label));
+    const unitsInput = el('input',{type:'number'}); unitsInput.value=row.units;
+    unitsInput.addEventListener('input',()=>{ state.domestic.rows[i].units = unitsInput.value; recalc(); });
+    tr.appendChild(el('td',{}, unitsInput));
+    const factorInput = el('input',{type:'number'}); factorInput.value=row.factor;
+    factorInput.addEventListener('input',()=>{ state.domestic.rows[i].factor = factorInput.value; recalc(); });
+    tr.appendChild(el('td',{}, factorInput));
+    tr.appendChild(el('td',{class:'computed', id:`dom-gpd-${i}`}));
+    tr.appendChild(el('td',{class:'computed', id:`dom-gpm-${i}`}));
+    table.appendChild(tr);
+  });
+  const totalsRow = el('tr',{class:'totals'});
+  totalsRow.appendChild(el('td',{class:'lbl'},'TOTAL AVERAGE DAILY DEMAND'));
+  totalsRow.appendChild(el('td',{}));
+  totalsRow.appendChild(el('td',{}));
+  totalsRow.appendChild(el('td',{class:'computed', id:'dom-total-gpd'}));
+  totalsRow.appendChild(el('td',{class:'computed', id:'dom-total-gpm'}));
+  table.appendChild(totalsRow);
+  body.appendChild(table);
+  panel.appendChild(body);
+  c.appendChild(panel);
+
+  const peak = el('div',{class:'panel'});
+  peak.appendChild(el('div',{class:'panel-title'},'PEAK DEMAND CALCULATION'));
+  const peakBody = el('div',{class:'panel-body field-grid'});
+  peakBody.appendChild(numberField('Estimated Service Population','domestic.servicePopulation',{hint:'Enter total population served'}));
+  peakBody.appendChild(readoutField('Peaking Factor (per NC DEQ)','out-peakingFactor'));
+  peakBody.appendChild(readoutField('Peak Daily Demand (gpd)','out-peakDailyGpd'));
+  peakBody.appendChild(readoutField('Peak Daily Demand (gpm)','out-peakDailyGpm'));
+  peakBody.appendChild(numberField('Peak Hour Factor (applied to peak day)','domestic.peakHourFactor',{hint:'Typical range: 1.5 to 2.0. Adjust based on local utility.'}));
+  peakBody.appendChild(readoutField('Peak Hour Demand (gpm)','out-peakHourGpm'));
+  peak.appendChild(peakBody);
+  peak.appendChild(el('div',{class:'panel-note'},'Per 15A NCAC 18C .0409: 2.5x peaking factor for population ≤ 10,000; 2.0x for population > 10,000.'));
+  c.appendChild(peak);
+
+  const final = el('div',{class:'panel'});
+  final.appendChild(el('div',{class:'panel-title blue'},'ESTIMATED PEAK DOMESTIC DEMAND FOR FIRE FLOW ANALYSIS'));
+  const finalBody = el('div',{class:'panel-body'});
+  finalBody.appendChild(el('div',{class:'readout big', id:'out-peakDomesticDemand', style:'display:inline-block;padding:10px 18px;'}));
+  final.appendChild(finalBody);
+  final.appendChild(el('div',{class:'panel-note'},'This value feeds the Peak Domestic Demand field on the Head Loss Analysis tab (shown there as a reference — copy it in manually if you want to use it).'));
+  c.appendChild(final);
+
+  const refPanel = el('div',{class:'panel'});
+  refPanel.appendChild(el('div',{class:'panel-title'},'NC DEMAND FACTORS — 15A NCAC 18C .0409 (Reference)'));
+  const refBody = el('div',{class:'panel-body overflow-x'});
+  const refTable = el('table',{class:'data-table'});
+  refTable.appendChild(el('tr',{},[el('th',{},'Connection Type'),el('th',{},'Demand'),el('th',{},'Unit')]));
+  NC_DEMAND_FACTORS.forEach(([name,val,unit])=>{
+    refTable.appendChild(el('tr',{},[el('td',{class:'lbl'},name), el('td',{},String(val)), el('td',{},unit)]));
+  });
+  refBody.appendChild(refTable);
+  refPanel.appendChild(refBody);
+  c.appendChild(refPanel);
+
+  return c;
+}
+
+/* ---- Head Loss Analysis ---- */
+function buildStudyPointTable(spIndex){
+  const table = el('table',{class:'data-table'});
+  table.appendChild(el('tr',{},[
+    el('th',{},'Seg #'),el('th',{},'Description'),el('th',{},'Pipe Material'),el('th',{},'C-Factor'),
+    el('th',{},'Diameter (in)'),el('th',{},'Length (ft)'),el('th',{},'Flow (gpm)'),
+    el('th',{},'Friction Loss (ft/100ft)'),el('th',{},'Segment Friction Loss (ft)'),
+    el('th',{},'Elev. Start (ft)'),el('th',{},'Elev. End (ft)'),el('th',{},'Elevation Head Loss (ft)')
+  ]));
+  for(let r=0;r<6;r++){
+    const seg = state.headloss.studyPoints[spIndex].segments[r];
+    const tr = el('tr',{});
+    tr.appendChild(el('td',{},String(r+1)));
+    const descInput = el('input',{type:'text'}); descInput.value=seg.desc;
+    descInput.addEventListener('input',()=>{ seg.desc=descInput.value; recalc(); });
+    tr.appendChild(el('td',{}, descInput));
+    const matSelect = el('select',{});
+    matSelect.appendChild(el('option',{value:''},'—'));
+    MATERIAL_OPTIONS.forEach(m=> matSelect.appendChild(el('option',{value:m},m)));
+    matSelect.value = seg.material;
+    matSelect.addEventListener('change',()=>{ seg.material=matSelect.value; recalc(); });
+    tr.appendChild(el('td',{}, matSelect));
+    tr.appendChild(el('td',{class:'computed', id:`seg-${spIndex}-${r}-cfactor`}));
+    const diameterInput = el('input',{type:'number'}); diameterInput.value=seg.diameter;
+    diameterInput.addEventListener('input',()=>{ seg.diameter=diameterInput.value; recalc(); });
+    tr.appendChild(el('td',{}, diameterInput));
+    const lengthInput = el('input',{type:'number'}); lengthInput.value=seg.length;
+    lengthInput.addEventListener('input',()=>{ seg.length=lengthInput.value; recalc(); });
+    tr.appendChild(el('td',{}, lengthInput));
+    const flowInput = el('input',{type:'number'}); flowInput.value=seg.flow;
+    flowInput.addEventListener('input',()=>{ seg.flow=flowInput.value; recalc(); });
+    tr.appendChild(el('td',{}, flowInput));
+    tr.appendChild(el('td',{class:'computed', id:`seg-${spIndex}-${r}-friction100`}));
+    tr.appendChild(el('td',{class:'computed', id:`seg-${spIndex}-${r}-segfriction`}));
+    const elevStartInput = el('input',{type:'number'}); elevStartInput.value=seg.elevStart;
+    elevStartInput.addEventListener('input',()=>{ seg.elevStart=elevStartInput.value; recalc(); });
+    tr.appendChild(el('td',{}, elevStartInput));
+    const elevEndInput = el('input',{type:'number'}); elevEndInput.value=seg.elevEnd;
+    elevEndInput.addEventListener('input',()=>{ seg.elevEnd=elevEndInput.value; recalc(); });
+    tr.appendChild(el('td',{}, elevEndInput));
+    tr.appendChild(el('td',{class:'computed', id:`seg-${spIndex}-${r}-elevloss`}));
+    table.appendChild(tr);
+  }
+  return table;
+}
+
+function buildStudyPointPanel(spIndex, title){
+  const panel = el('div',{class:'panel'});
+  panel.appendChild(el('div',{class:'panel-title blue'},title));
+  const body = el('div',{class:'panel-body'});
+  const header = el('div',{class:'study-point-header'});
+  header.appendChild(textField('Location / Description', `headloss.studyPoints.${spIndex}.location`));
+  header.appendChild(textField('Hydrant ID', `headloss.studyPoints.${spIndex}.hydrantId`));
+  body.appendChild(header);
+  body.appendChild(el('div',{class:'overflow-x'}, buildStudyPointTable(spIndex)));
+  const totals = el('div',{class:'field-grid', style:'margin-top:12px;'});
+  totals.appendChild(readoutField('Total Head Loss (ft)', `out-sp${spIndex}-headlossft`));
+  totals.appendChild(readoutField('Total Head Loss (psi)', `out-sp${spIndex}-headlosspsi`));
+  totals.appendChild(readoutField('Residual Pressure (psi)', `out-sp${spIndex}-residual`, {big:true}));
+  const statusWrap = el('div',{class:'field'});
+  statusWrap.appendChild(el('label',{},'Status'));
+  statusWrap.appendChild(el('div',{class:'readout big', id:`out-sp${spIndex}-status`}));
+  totals.appendChild(statusWrap);
+  body.appendChild(totals);
+  panel.appendChild(body);
+  return panel;
+}
+
+function buildHeadlossSheet(){
+  const c = el('div',{});
+
+  const materials = el('div',{class:'panel'});
+  materials.appendChild(el('div',{class:'panel-title'},'PIPE MATERIAL C-FACTORS (Reference)'));
+  const matBody = el('div',{class:'panel-body overflow-x'});
+  const matTable = el('table',{class:'data-table'});
+  matTable.appendChild(el('tr',{},[el('th',{},'Material'),el('th',{},'C-Factor')]));
+  Object.entries(MATERIAL_C).forEach(([m,cval])=> matTable.appendChild(el('tr',{},[el('td',{class:'lbl'},m),el('td',{},String(cval))])));
+  matBody.appendChild(matTable);
+  materials.appendChild(matBody);
+  materials.appendChild(el('div',{class:'panel-note'},'Hazen-Williams formula: f = 0.2083 × (100/C)^1.852 × Q^1.852 / d^4.8655'));
+  c.appendChild(materials);
+
+  const design = el('div',{class:'panel'});
+  design.appendChild(el('div',{class:'panel-title'},'DESIGN FLOW INPUTS'));
+  const designBody = el('div',{class:'panel-body field-grid'});
+  designBody.appendChild(numberField('Fire Flow Demand','headloss.fireFlowDemand',{unit:'gpm'}));
+  designBody.appendChild(numberField('Peak Domestic Demand','headloss.peakDomesticDemand',{unit:'gpm'}));
+  designBody.appendChild(readoutField('Total Design Flow (gpm)','out-totalDesignFlow',{big:true}));
+  designBody.appendChild(numberField('Master Meter Loss','headloss.masterMeterLoss',{unit:'psi'}));
+  designBody.appendChild(numberField('Misc. System Losses','headloss.miscSystemLosses',{unit:'psi'}));
+  designBody.appendChild(readoutField('Estimated Peak Domestic (from NC Demand tab)','out-estimatedDomestic'));
+  design.appendChild(designBody);
+  c.appendChild(design);
+
+  const adjusted = el('div',{class:'panel'});
+  adjusted.appendChild(el('div',{class:'panel-title blue'},'ADJUSTED RESIDUAL AT DESIGN FLOW'));
+  const adjBody = el('div',{class:'panel-body field-grid'});
+  adjBody.appendChild(readoutField('Adjusted Residual (psi)','out-adjustedResidual',{big:true}));
+  adjusted.appendChild(adjBody);
+  adjusted.appendChild(el('div',{class:'panel-note'},'Based on N^1.85 extrapolation from fire flow test data.'));
+  c.appendChild(adjusted);
+
+  c.appendChild(buildStudyPointPanel(0,'STUDY POINT 1 — Most Hydraulically Remote Hydrant'));
+  c.appendChild(buildStudyPointPanel(1,'STUDY POINT 2 — Second Most Remote Hydrant'));
+  c.appendChild(buildStudyPointPanel(2,'STUDY POINT 3 — Third Most Remote Hydrant'));
+
+  return c;
+}
+
+/* ---- Hydraulic Supply Curve ---- */
+function buildSupplySheet(){
+  const c = el('div',{});
+  const top = el('div',{class:'panel'});
+  top.appendChild(el('div',{class:'panel-title'},'FLOW TEST DATA (from Project tab) & DEMAND POINT'));
+  const topBody = el('div',{class:'panel-body field-grid'});
+  topBody.appendChild(readoutField('Static Pressure (psi)','out-sc-static'));
+  topBody.appendChild(readoutField('Residual Pressure (psi)','out-sc-residual'));
+  topBody.appendChild(readoutField('Flow at Residual (gpm)','out-sc-flowresidual'));
+  topBody.appendChild(readoutField('Design Flow — Fire+Domestic (gpm)','out-sc-designflow'));
+  topBody.appendChild(readoutField('Pressure at Design Flow (psi)','out-sc-pressureatdesign',{big:true}));
+  topBody.appendChild(readoutField('Min Required Pressure (psi)','out-sc-minrequired'));
+  topBody.appendChild(readoutField('Max Available Flow @ 20 psi (gpm)','out-sc-maxflow'));
+  top.appendChild(topBody);
+  top.appendChild(el('div',{class:'panel-note'},'N^1.85 Formula: P = Ps − (Ps−Pr) × (Q/Qt)^1.85, where Ps = static, Pr = residual, Qt = test flow.'));
+  c.appendChild(top);
+
+  const chartPanel = el('div',{class:'panel'});
+  chartPanel.appendChild(el('div',{class:'panel-title blue'},'SUPPLY CURVE vs. DEMAND'));
+  const chartBody = el('div',{class:'panel-body'});
+  const chartWrap = el('div',{class:'chart-wrap'});
+  chartWrap.appendChild(el('svg',{id:'supply-chart', viewBox:'0 0 640 320', width:'100%', height:'320'}));
+  chartBody.appendChild(chartWrap);
+  chartPanel.appendChild(chartBody);
+  c.appendChild(chartPanel);
+
+  const tablePanel = el('div',{class:'panel'});
+  tablePanel.appendChild(el('div',{class:'panel-title'},'SUPPLY CURVE INTERPOLATION TABLE'));
+  const tableBody = el('div',{class:'panel-body overflow-x'});
+  const table = el('table',{class:'data-table'});
+  table.appendChild(el('tr',{},[el('th',{},'Flow (gpm)'),el('th',{},'Pressure (psi)'),el('th',{},'P^1.85 Ratio'),el('th',{},'Status')]));
+  SUPPLY_CURVE_FLOWS.forEach((f,i)=>{
+    table.appendChild(el('tr',{},[
+      el('td',{class:'lbl'},String(f)),
+      el('td',{class:'computed', id:`sc-row-${i}-pressure`}),
+      el('td',{class:'computed', id:`sc-row-${i}-ratio`}),
+      el('td',{class:'computed', id:`sc-row-${i}-status`})
+    ]));
+  });
+  tableBody.appendChild(table);
+  tablePanel.appendChild(tableBody);
+  c.appendChild(tablePanel);
+
+  return c;
+}
+
+/* ---- Upper Floor Pressure Check ---- */
+function buildUpperFloorSheet(){
+  const c = el('div',{});
+  c.appendChild(el('div',{class:'note-box blue'},'Will top-floor residents experience adequate water pressure for domestic use?'));
+  c.appendChild(document.createElement('br'));
+
+  const grid = el('div',{class:'grid-3'});
+
+  const site = el('div',{class:'panel'});
+  site.appendChild(el('div',{class:'panel-title'},'BUILDING & SITE INFORMATION'));
+  const siteBody = el('div',{class:'panel-body field-grid'});
+  siteBody.appendChild(numberField('Number of Stories','upperFloor.numberOfStories'));
+  siteBody.appendChild(numberField('Floor-to-Floor Height','upperFloor.floorToFloorHeight',{unit:'ft', hint:'Typical: 10 ft residential, 12-14 ft commercial ground floor'}));
+  siteBody.appendChild(readoutField('Height: Grade to Top Floor Fixture (ft)','out-uf-height'));
+  siteBody.appendChild(numberField('Building Pad Elevation','upperFloor.buildingPadElevation',{unit:'ft'}));
+  site.appendChild(siteBody);
+  grid.appendChild(site);
+
+  const internal = el('div',{class:'panel'});
+  internal.appendChild(el('div',{class:'panel-title'},'BUILDING INTERNAL LOSSES (Riser)'));
+  const intBody = el('div',{class:'panel-body field-grid'});
+  intBody.appendChild(numberField('Riser Pipe Diameter','upperFloor.riserDiameter',{unit:'in'}));
+  intBody.appendChild(readoutField('Riser Pipe Length (ft)','out-uf-riserlength'));
+  intBody.appendChild(numberField('Riser C-Factor','upperFloor.riserCFactor',{hint:'Typical: 130 copper/PVC, 120 galvanized'}));
+  intBody.appendChild(numberField('Flow to Top Floor Unit','upperFloor.flowToTopFloor',{unit:'gpm', hint:'Typical: 5-8 gpm (shower + sink simultaneous)'}));
+  intBody.appendChild(readoutField('Elevation Head Loss — riser (psi)','out-uf-elevriser'));
+  intBody.appendChild(readoutField('Riser Friction Loss (psi)','out-uf-riserfriction'));
+  intBody.appendChild(readoutField('Fitting Losses est. 20% (psi)','out-uf-fittingloss'));
+  intBody.appendChild(readoutField('Total Building Internal Loss (psi)','out-uf-totalinternal',{big:true}));
+  internal.appendChild(intBody);
+  grid.appendChild(internal);
+
+  const piping = el('div',{class:'panel'});
+  piping.appendChild(el('div',{class:'panel-title'},'BUILDING PIPING LOSSES'));
+  const pipeBody = el('div',{class:'panel-body field-grid'});
+  pipeBody.appendChild(numberField('Domestic Flow to Building','upperFloor.domesticFlowToBuilding',{unit:'gpm', hint:'Typical: 15-30 gpm per building'}));
+  pipeBody.appendChild(numberField('Bldg Supply Pipe Diameter','upperFloor.bldgSupplyDiameter',{unit:'in'}));
+  pipeBody.appendChild(numberField('Bldg Supply Pipe Length','upperFloor.bldgSupplyLength',{unit:'ft'}));
+  pipeBody.appendChild(numberField('Pipe C-Factor','upperFloor.bldgPipeCFactor',{hint:'Typical: 130 PVC, 120 DIP, 140 copper'}));
+  pipeBody.appendChild(readoutField('Bldg Pipe Friction Loss (psi)','out-uf-bldgfriction'));
+  pipeBody.appendChild(numberField('Water Meter Loss','upperFloor.waterMeterLoss',{unit:'psi', hint:'Typical: 3-8 psi'}));
+  pipeBody.appendChild(numberField('Backflow Preventer Loss','upperFloor.backflowLoss',{unit:'psi'}));
+  pipeBody.appendChild(selectField('Backflow Preventer Type','upperFloor.backflowType',BACKFLOW_OPTIONS));
+  piping.appendChild(pipeBody);
+  grid.appendChild(piping);
+
+  c.appendChild(grid);
+
+  const fixture = el('div',{class:'panel'});
+  fixture.appendChild(el('div',{class:'panel-title blue'},'PRESSURE AT TOP FLOOR FIXTURE'));
+  const fixtureBody = el('div',{class:'panel-body'});
+  const rows = [
+    ['Static Pressure at Hydrant','out-uf-static'],
+    ['Less: Elevation Loss (hydrant to pad)','out-uf-elevloss2'],
+    ['Less: Bldg Pipe Friction Loss','out-uf-bldgfriction2'],
+    ['Less: Water Meter Loss','out-uf-meterloss2'],
+    ['Less: Backflow Preventer Loss','out-uf-backflowloss2'],
+    ['Pressure at Building Connection','out-uf-connectionpressure'],
+    ['Less: Building Internal Losses','out-uf-internalloss2']
+  ];
+  rows.forEach(([label,id])=> fixtureBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},label), el('span',{class:'val', id}, '')])));
+  fixtureBody.appendChild(el('div',{class:'field-grid', style:'margin-top:10px;'},[
+    readoutField('PRESSURE AT TOP FLOOR FIXTURE (psi)','out-uf-fixturepressure',{big:true}),
+    numberField('Minimum Acceptable Pressure','upperFloor.minAcceptablePressure',{unit:'psi', hint:'Industry standard: 40 psi minimum. Some codes require 30 psi.'}),
+    readoutField('Pressure Surplus / Deficit (psi)','out-uf-surplus')
+  ]));
+  fixture.appendChild(fixtureBody);
+  c.appendChild(fixture);
+
+  const status = el('div',{class:'panel'});
+  status.appendChild(el('div',{class:'panel-title'},'DOMESTIC PRESSURE STATUS'));
+  const statusBody = el('div',{class:'panel-body'});
+  statusBody.appendChild(el('div',{class:'status-banner', id:'out-uf-status'}));
+  status.appendChild(statusBody);
+  c.appendChild(status);
+
+  const booster = el('div',{class:'panel'});
+  booster.appendChild(el('div',{class:'panel-title'},'BOOSTER PUMP RECOMMENDATION'));
+  const boosterBody = el('div',{class:'panel-body field-grid'});
+  boosterBody.appendChild(readoutField('Booster Pump Required?','out-uf-boosterrequired'));
+  boosterBody.appendChild(readoutField('Minimum Boost Required (psi)','out-uf-minboost',{hint:'Includes 10 psi safety margin'}));
+  boosterBody.appendChild(readoutField('Recommended Pump Discharge Pressure (psi)','out-uf-pumpdischarge'));
+  booster.appendChild(boosterBody);
+  c.appendChild(booster);
+
+  const ref = el('div',{class:'panel'});
+  ref.appendChild(el('div',{class:'panel-title'},'ELEVATION HEAD LOSS QUICK REFERENCE'));
+  const refBody = el('div',{class:'panel-body overflow-x'});
+  const refTable = el('table',{class:'data-table'});
+  refTable.appendChild(el('tr',{},[el('th',{},'Stories'),el('th',{},'Height to Top Fixture (ft)'),el('th',{},'Elevation Loss (psi)'),el('th',{},'Pressure Needed at Grade (psi)')]));
+  ELEV_QUICK_REF.forEach(row=> refTable.appendChild(el('tr',{}, row.map(v=>el('td',{},String(v))))));
+  refBody.appendChild(refTable);
+  ref.appendChild(refBody);
+  ref.appendChild(el('div',{class:'panel-note'},'Based on 10 ft floor-to-floor + 3 ft fixture height, 40 psi target at top fixture. Does not include friction, meter, or backflow losses.'));
+  c.appendChild(ref);
+
+  return c;
+}
+
+/* ---- Results & Recommendations ---- */
+function buildResultsSheet(){
+  const c = el('div',{});
+  const grid = el('div',{style:'display:grid;grid-template-columns:1.3fr 1fr;gap:16px;'});
+
+  const spPanel = el('div',{class:'panel'});
+  spPanel.appendChild(el('div',{class:'panel-title'},'STUDY POINT COMPARISON'));
+  const spBody = el('div',{class:'panel-body overflow-x'});
+  const spTable = el('table',{class:'data-table'});
+  spTable.appendChild(el('tr',{},[el('th',{},''),el('th',{},'Study Point 1'),el('th',{},'Study Point 2'),el('th',{},'Study Point 3')]));
+  const spRows = [
+    ['Total Friction Loss (ft)','frictionft'],['Total Elevation Loss (ft)','elevft'],
+    ['Total Head Loss (ft)','headlossft'],['Total Head Loss (psi)','headlosspsi'],
+    ['Residual Pressure (psi)','residual'],['Status','status']
+  ];
+  spRows.forEach(([label,key])=>{
+    const tr = el('tr',{});
+    tr.appendChild(el('td',{class:'lbl'},label));
+    for(let i=0;i<3;i++) tr.appendChild(el('td',{class:'computed', id:`res-sp${i}-${key}`}));
+    spTable.appendChild(tr);
+  });
+  spBody.appendChild(spTable);
+  spPanel.appendChild(spBody);
+  grid.appendChild(spPanel);
+
+  const recPanel = el('div',{class:'panel'});
+  recPanel.appendChild(el('div',{class:'panel-title blue'},'RECOMMENDATIONS & NOTES'));
+  const recBody = el('div',{class:'panel-body'});
+  recBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'Booster Pump Required?'), el('span',{class:'val', id:'res-boosterrequired'},'')]));
+  recBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'If required, minimum boost (+5 psi margin):'), el('span',{class:'val', id:'res-minboost'},'')]));
+  recBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'On-Site Storage Required?'), el('span',{class:'val', id:'res-onsitestorage'},'')]));
+  recPanel.appendChild(recBody);
+  grid.appendChild(recPanel);
+  c.appendChild(grid);
+
+  const controlling = el('div',{class:'panel'});
+  controlling.appendChild(el('div',{class:'panel-title'},'CONTROLLING (WORST-CASE) STUDY POINT'));
+  const ctrlBody = el('div',{class:'panel-body field-grid'});
+  ctrlBody.appendChild(readoutField('Lowest Residual Pressure (psi)','res-lowest'));
+  ctrlBody.appendChild(readoutField('Controlling Study Point','res-controllingpoint'));
+  ctrlBody.appendChild(readoutField('Required Minimum Residual (psi)','res-minrequired'));
+  ctrlBody.appendChild(readoutField('Pressure Surplus / Deficit (psi)','res-surplus'));
+  controlling.appendChild(ctrlBody);
+  c.appendChild(controlling);
+
+  const status = el('div',{class:'panel'});
+  status.appendChild(el('div',{class:'panel-title'},'OVERALL FIRE FLOW STATUS'));
+  const statusBody = el('div',{class:'panel-body'});
+  statusBody.appendChild(el('div',{class:'status-banner', id:'res-overallstatus'}));
+  status.appendChild(statusBody);
+  c.appendChild(status);
+
+  const guidance = el('div',{class:'panel'});
+  guidance.appendChild(el('div',{class:'panel-title'},'DEVELOPMENT-SPECIFIC GUIDANCE'));
+  const guidanceBody = el('div',{class:'panel-body'});
+  guidanceBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'Development Type:'), el('span',{class:'val', id:'res-devtype'},'')]));
+  guidanceBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'Required Fire Flow:'), el('span',{class:'val', id:'res-reqfireflow'},'')]));
+  guidanceBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'Required Duration:'), el('span',{class:'val', id:'res-reqduration'},'')]));
+  guidanceBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'Sprinklered:'), el('span',{class:'val', id:'res-sprinklered'},'')]));
+  guidance.appendChild(guidanceBody);
+  guidance.appendChild(el('div',{class:'panel-note'},'Per 2018 NC Fire Code (2015 IFC) Table B105.2, a full NFPA 13 system allows fire-flow down to 25% of the table value, min 1,000 gpm; NFPA 13R floors at 1,500 gpm. Confirm Appendix B adoption and any amendments with the local AHJ.'));
+  c.appendChild(guidance);
+
+  const notes = el('div',{class:'panel'});
+  notes.appendChild(el('div',{class:'panel-title'},'ENGINEERING NOTES & SOFTWARE RECOMMENDATIONS'));
+  const notesBody = el('div',{class:'panel-body'});
+  notesBody.appendChild(el('p',{},'This spreadsheet-derived tool provides steady-state analysis using the Hazen-Williams equation for 3 study points. For complex networks, consider dedicated hydraulic modeling software:'));
+  const list = el('ol',{class:'rec-list'});
+  ['WaterGEMS / WaterCAD (Bentley) — Industry standard. Integrates with Civil 3D.',
+   'EPANET (US EPA, FREE) — Powerful open-source hydraulic modeling.',
+   'InfoWater Pro (Autodesk/Innovyze) — Runs inside ArcGIS for GIS-based utilities.',
+   'H2ONET / H2OMAP (Innovyze) — Specialized fire flow analysis with compliance checks.'
+  ].forEach(t=> list.appendChild(el('li',{},t)));
+  notesBody.appendChild(list);
+  notesBody.appendChild(el('p',{style:'margin-top:10px;font-weight:600;'},'When to use software instead of this tool:'));
+  const list2 = el('ul',{class:'rec-list'});
+  ['System has looped mains (this tool assumes single supply paths)',
+   'Multiple supply points or pressure zones',
+   'Need to model pump curves, PRVs, tanks, or time-varying demand',
+   'Jurisdiction requires calibrated model submission'
+  ].forEach(t=> list2.appendChild(el('li',{},t)));
+  notesBody.appendChild(list2);
+  notes.appendChild(notesBody);
+  c.appendChild(notes);
+
+  return c;
+}
+
+/* ---- IFC Reference Tables ---- */
+function buildIfcSheet(){
+  const c = el('div',{});
+  c.appendChild(el('div',{class:'note-box'},'Reference Only — Always verify against local jurisdiction amendments.'));
+  c.appendChild(document.createElement('br'));
+
+  const t1 = el('div',{class:'panel'});
+  t1.appendChild(el('div',{class:'panel-title'},'TABLE B105.1(1) — 1 & 2 FAMILY DWELLINGS (2015 IFC)'));
+  const t1Body = el('div',{class:'panel-body overflow-x'});
+  const t1Table = el('table',{class:'data-table'});
+  t1Table.appendChild(el('tr',{},[el('th',{},'Building Area (sq ft)'),el('th',{},'Fire Flow (gpm)'),el('th',{},'Duration (hrs)')]));
+  TABLE_B105_1_1.forEach(row=> t1Table.appendChild(el('tr',{}, row.map(v=>el('td',{},String(v))))));
+  t1Body.appendChild(t1Table);
+  t1.appendChild(t1Body);
+  t1.appendChild(el('div',{class:'panel-note'},'Per 2015 IFC, 1 & 2 family/townhouse buildings over 3,600 sq ft use Table B105.1(2) below (by construction type).'));
+  c.appendChild(t1);
+
+  const legend = el('div',{class:'panel'});
+  legend.appendChild(el('div',{class:'panel-title'},'IBC CONSTRUCTION TYPE CLASSIFICATION LEGEND'));
+  const legendBody = el('div',{class:'panel-body overflow-x'});
+  const legendTable = el('table',{class:'data-table'});
+  legendTable.appendChild(el('tr',{},[el('th',{},'Type'),el('th',{},'Rating'),el('th',{},'Structural Frame'),el('th',{},'Bearing Walls (Ext.)'),el('th',{},'Bearing Walls (Int.)'),el('th',{},'Typical Use')]));
+  CONSTRUCTION_LEGEND.forEach(row=> legendTable.appendChild(el('tr',{}, row.map((v,i)=>el('td',{style: i===5?'text-align:left;':''},v)))));
+  legendBody.appendChild(legendTable);
+  legend.appendChild(legendBody);
+  legend.appendChild(el('div',{class:'panel-note'},'"A" suffix = fire-protected assemblies. "B" suffix = unprotected. Higher ratings = more fire resistance = lower required fire flow.'));
+  c.appendChild(legend);
+
+  const t2 = el('div',{class:'panel'});
+  t2.appendChild(el('div',{class:'panel-title'},'TABLE B105.1(2) — REQUIRED FIRE-FLOW FOR BUILDINGS OTHER THAN 1 & 2 FAMILY DWELLINGS (2015 IFC)'));
+  const t2Body = el('div',{class:'panel-body overflow-x'});
+  const t2Table = el('table',{class:'data-table'});
+  t2Table.appendChild(el('tr',{},[el('th',{},'Type I-A / I-B'),el('th',{},'Type II-A / III-A'),el('th',{},'Type IV / V-A'),el('th',{},'Type II-B / III-B'),el('th',{},'Type V-B'),el('th',{},'Fire-Flow (gpm)'),el('th',{},'Duration (hrs)')]));
+  const IFC_DURATIONS = [2,2,2,2,2,2,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4];
+  IFC_TABLE.forEach((row,i)=>{
+    const fmtRange = (lo, hi)=> hi>=1e9 ? `${lo.toLocaleString()}+` : `${lo.toLocaleString()}-${hi.toLocaleString()}`;
+    const prev = i===0 ? [0,0,0,0,0] : IFC_TABLE[i-1];
+    const cells = [0,1,2,3,4].map(col=>{
+      if(row[col]>=1e9 && prev[col]>=1e9) return '—';
+      return fmtRange(prev[col]+ (prev[col]===0?0:1), row[col]);
+    });
+    t2Table.appendChild(el('tr',{}, [...cells, String(row[5]), String(IFC_DURATIONS[i])].map(v=>el('td',{},v))));
+  });
+  t2Body.appendChild(t2Table);
+  t2.appendChild(t2Body);
+  t2.appendChild(el('div',{class:'panel-note'},'This table drives the automatic "Base Fire Flow (IFC)" lookup on the Project & Test Data tab, matched by Construction Type and Total Building Area.'));
+  c.appendChild(t2);
+
+  return c;
+}
+
+/* =========================================================================
+   RENDER (updates computed readouts)
+   ========================================================================= */
+function setStatusClass(node, statusText){
+  node.classList.remove('status-pass','status-fail','status-good','status-bad','status-warn');
+  const t = (statusText||'').toString().toUpperCase();
+  if(t.includes('PASS') || (t.includes('ADEQUATE') && !t.includes('INADEQUATE'))) node.classList.add('status-pass');
+  else if(t.includes('FAIL') || t.includes('INADEQUATE') || t.includes('BELOW MIN')) node.classList.add('status-fail');
+  else if(t.includes('MARGINAL')) node.classList.add('status-warn');
+}
+
+function drawSupplyChart(){
+  const svg = document.getElementById('supply-chart');
+  if(!svg) return;
+  svg.innerHTML='';
+  const W=640,H=320,padL=50,padR=20,padT=20,padB=36;
+  const rows = computed.supplyCurve.curveRows;
+  const maxFlow = Math.max(...rows.map(r=>r.flow),1);
+  const maxP = Math.max(computed.supplyCurve.staticP||0, ...rows.map(r=>r.pressure), 20)*1.1 || 100;
+  const x = f => padL + (f/maxFlow)*(W-padL-padR);
+  const y = p => H-padB - (p/maxP)*(H-padT-padB);
+
+  const ns='http://www.w3.org/2000/svg';
+  function mk(tag,attrs){ const e=document.createElementNS(ns,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+
+  // axes
+  svg.appendChild(mk('line',{x1:padL,y1:H-padB,x2:W-padR,y2:H-padB,stroke:'#999'}));
+  svg.appendChild(mk('line',{x1:padL,y1:padT,x2:padL,y2:H-padB,stroke:'#999'}));
+  svg.appendChild(mk('text',{x:W/2,y:H-6,'text-anchor':'middle','font-size':'11',fill:'#555'})).textContent='Flow (gpm)';
+  const ylabel = mk('text',{x:14,y:H/2,'text-anchor':'middle','font-size':'11',fill:'#555',transform:`rotate(-90 14 ${H/2})`});
+  ylabel.textContent='Pressure (psi)'; svg.appendChild(ylabel);
+
+  // min-required line
+  const minP = num(state.project.minResidualPressure)||0;
+  svg.appendChild(mk('line',{x1:padL,y1:y(minP),x2:W-padR,y2:y(minP),stroke:'#c62828','stroke-dasharray':'4,3'}));
+  const minLbl = mk('text',{x:W-padR,y:y(minP)-4,'text-anchor':'end','font-size':'10',fill:'#c62828'});
+  minLbl.textContent = `Min required: ${fmt(minP,0)} psi`; svg.appendChild(minLbl);
+
+  // supply curve path
+  let d='';
+  rows.forEach((r,i)=>{ d += (i===0?'M':'L') + x(r.flow) + ' ' + y(r.pressure) + ' '; });
+  svg.appendChild(mk('path',{d, fill:'none', stroke:'#2E75B6','stroke-width':'2.5'}));
+  rows.forEach(r=> svg.appendChild(mk('circle',{cx:x(r.flow), cy:y(r.pressure), r:2.5, fill:'#2E75B6'})));
+
+  // demand point marker
+  const dq = computed.supplyCurve.designFlow, dp = computed.supplyCurve.pressureAtDesignFlow;
+  if(isFinite(dq) && isFinite(dp)){
+    svg.appendChild(mk('circle',{cx:x(dq), cy:y(dp), r:6, fill:'#ffb238', stroke:'#8a5a00','stroke-width':'1.5'}));
+    const lbl = mk('text',{x:x(dq)+8, y:y(dp)-8, 'font-size':'10', fill:'#8a5a00','font-weight':'700'});
+    lbl.textContent = `Demand: ${fmtInt(dq)} gpm @ ${fmt(dp,1)} psi`;
+    svg.appendChild(lbl);
+  }
+
+  // axis ticks
+  for(let i=0;i<=5;i++){
+    const f = maxFlow*i/5;
+    svg.appendChild(mk('text',{x:x(f), y:H-padB+14, 'text-anchor':'middle','font-size':'9', fill:'#777'})).textContent = fmtInt(f);
+  }
+  for(let i=0;i<=4;i++){
+    const pv = maxP*i/4;
+    svg.appendChild(mk('text',{x:padL-6, y:y(pv)+3, 'text-anchor':'end','font-size':'9', fill:'#777'})).textContent = fmt(pv,0);
+  }
+}
+
+function render(){
+  const p = computed.project;
+  const setText = (id, text)=>{ const n=document.getElementById(id); if(n) n.textContent = text; };
+  const setStatus = (id, text)=>{ const n=document.getElementById(id); if(n){ n.textContent=text; setStatusClass(n,text); } };
+
+  setText('out-totalBuildingArea', fmtInt(p.totalBuildingArea));
+  setText('out-baseFireFlow', fmtInt(p.baseFireFlow));
+  setText('out-sprinklerReduction', (p.reduction*100).toFixed(0)+'%');
+  setText('out-requiredFireFlow', fmtInt(p.requiredFireFlow));
+  setText('out-requiredDuration', fmt(p.requiredDuration,1));
+  setText('out-pressureDrop', typeof p.pressureDrop==='number'?fmt(p.pressureDrop,1):'—');
+  setText('out-availableFlow20', typeof p.availableFlow20==='number'?fmtInt(p.availableFlow20):p.availableFlow20);
+  setText('out-pressureRatio', typeof p.pressureRatio==='number'?fmt(p.pressureRatio,2):p.pressureRatio);
+
+  const d = computed.domestic;
+  d.domRows.forEach((r,i)=>{ setText(`dom-gpd-${i}`, fmtInt(r.gpd)); setText(`dom-gpm-${i}`, fmt(r.gpm,2)); });
+  setText('dom-total-gpd', fmtInt(d.totalGpd));
+  setText('dom-total-gpm', fmt(d.totalGpm,2));
+  setText('out-peakingFactor', d.peakingFactor+'x');
+  setText('out-peakDailyGpd', fmtInt(d.peakDailyGpd));
+  setText('out-peakDailyGpm', fmt(d.peakDailyGpm,2));
+  setText('out-peakHourGpm', fmt(d.peakHourGpm,2));
+  setText('out-peakDomesticDemand', fmtInt(d.peakDomesticDemand)+' gpm');
+
+  const hl = computed.headloss;
+  setText('out-totalDesignFlow', fmtInt(hl.totalDesignFlow));
+  setText('out-estimatedDomestic', fmtInt(computed.domestic.peakDomesticDemand)+' gpm');
+  setText('out-adjustedResidual', fmt(hl.adjustedResidual,1));
+  hl.studyPoints.forEach((sp,i)=>{
+    sp.segs.forEach((seg,r)=>{
+      setText(`seg-${i}-${r}-cfactor`, seg.cFactor===''?'':String(seg.cFactor));
+      setText(`seg-${i}-${r}-friction100`, seg.frictionPer100===''?'':fmt(seg.frictionPer100,3));
+      setText(`seg-${i}-${r}-segfriction`, fmt(seg.segFriction,2));
+      setText(`seg-${i}-${r}-elevloss`, fmt(seg.elevLoss,1));
+    });
+    setText(`out-sp${i}-headlossft`, fmt(sp.totalHeadLossFt,2));
+    setText(`out-sp${i}-headlosspsi`, fmt(sp.totalHeadLossPsi,2));
+    setText(`out-sp${i}-residual`, fmt(sp.residual,1));
+    setStatus(`out-sp${i}-status`, sp.status);
+  });
+
+  const sc = computed.supplyCurve;
+  setText('out-sc-static', fmt(sc.staticP,1));
+  setText('out-sc-residual', fmt(sc.residP,1));
+  setText('out-sc-flowresidual', fmt(sc.flowAtResid,0));
+  setText('out-sc-designflow', fmtInt(sc.designFlow));
+  setText('out-sc-pressureatdesign', fmt(sc.pressureAtDesignFlow,1));
+  setText('out-sc-minrequired', fmt(state.project.minResidualPressure,0));
+  setText('out-sc-maxflow', fmtInt(sc.maxAvailableFlow20));
+  sc.curveRows.forEach((row,i)=>{
+    setText(`sc-row-${i}-pressure`, fmt(row.pressure,1));
+    setText(`sc-row-${i}-ratio`, fmt(row.ratio,3));
+    setStatus(`sc-row-${i}-status`, row.status);
+  });
+  drawSupplyChart();
+
+  const uf = computed.upperFloor;
+  setText('out-uf-height', fmtInt(uf.heightGradeToTop));
+  setText('out-uf-riserlength', fmtInt(uf.riserLength));
+  setText('out-uf-elevriser', fmt(uf.elevHeadLossRiser,3));
+  setText('out-uf-riserfriction', fmt(uf.riserFriction,3));
+  setText('out-uf-fittingloss', fmt(uf.fittingLosses,3));
+  setText('out-uf-totalinternal', fmt(uf.totalBuildingInternalLoss,3));
+  setText('out-uf-bldgfriction', fmt(uf.bldgPipeFriction,3));
+  setText('out-uf-static', fmt(state.project.staticPressure,1)+' psi');
+  setText('out-uf-elevloss2', '-'+fmt(uf.elevHeadLossHydrantToPad,2)+' psi');
+  setText('out-uf-bldgfriction2', '-'+fmt(uf.bldgPipeFriction,2)+' psi');
+  setText('out-uf-meterloss2', '-'+fmt(state.upperFloor.waterMeterLoss,2)+' psi');
+  setText('out-uf-backflowloss2', '-'+fmt(state.upperFloor.backflowLoss,2)+' psi');
+  setText('out-uf-connectionpressure', fmt(uf.pressureAtBuildingConnection,2)+' psi');
+  setText('out-uf-internalloss2', '-'+fmt(uf.totalBuildingInternalLoss,2)+' psi');
+  setText('out-uf-fixturepressure', fmt(uf.pressureAtTopFloorFixture,1));
+  setText('out-uf-surplus', fmt(uf.surplusDeficit,1));
+  setStatus('out-uf-status', uf.ufStatus);
+  setText('out-uf-boosterrequired', uf.boosterRequired);
+  setText('out-uf-minboost', typeof uf.minBoostRequired==='number'?fmt(uf.minBoostRequired,1):uf.minBoostRequired);
+  setText('out-uf-pumpdischarge', typeof uf.recommendedPumpDischarge==='number'?fmt(uf.recommendedPumpDischarge,1):uf.recommendedPumpDischarge);
+
+  const res = computed.results;
+  [0,1,2].forEach(i=>{
+    const sp = hl.studyPoints[i];
+    setText(`res-sp${i}-frictionft`, fmt(sp.totalFrictionFt,2));
+    setText(`res-sp${i}-elevft`, fmt(sp.totalElevFt,2));
+    setText(`res-sp${i}-headlossft`, fmt(sp.totalHeadLossFt,2));
+    setText(`res-sp${i}-headlosspsi`, fmt(sp.totalHeadLossPsi,2));
+    setText(`res-sp${i}-residual`, fmt(sp.residual,1));
+    setStatus(`res-sp${i}-status`, sp.status);
+  });
+  setText('res-boosterrequired', res.boosterRequiredMain);
+  setText('res-minboost', typeof res.minBoostMain==='number'?fmt(res.minBoostMain,1)+' psi':res.minBoostMain);
+  setText('res-onsitestorage', res.onSiteStorage);
+  setText('res-lowest', fmt(res.worst,1));
+  setText('res-controllingpoint', 'Study Point '+(res.worstIdx+1));
+  setText('res-minrequired', fmt(state.project.minResidualPressure,0));
+  setText('res-surplus', fmt(res.surplus,1));
+  setStatus('res-overallstatus', res.overallStatus);
+  setText('res-devtype', state.project.developmentType);
+  setText('res-reqfireflow', fmtInt(p.requiredFireFlow)+' gpm');
+  setText('res-reqduration', fmt(p.requiredDuration,1)+' hrs');
+  setText('res-sprinklered', state.project.sprinklerSystem);
+}
+
+/* =========================================================================
+   TAB WIRING & INIT
+   ========================================================================= */
+const sheetBuilders = {
+  project: buildProjectSheet, domestic: buildDomesticSheet, headloss: buildHeadlossSheet,
+  supply: buildSupplySheet, upperfloor: buildUpperFloorSheet, results: buildResultsSheet, ifc: buildIfcSheet
+};
+
+function init(){
+  const tabs = document.getElementById('tabs');
+  const main = document.getElementById('main');
+  SHEETS.forEach((s,i)=>{
+    const btn = el('button',{class:'tab-btn'+(i===0?' active':''), 'data-target':s.id}, s.title);
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.sheet').forEach(sh=>sh.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('sheet-'+s.id).classList.add('active');
+    });
+    tabs.appendChild(btn);
+
+    const sheetDiv = el('div',{class:'sheet'+(i===0?' active':''), id:'sheet-'+s.id});
+    sheetDiv.appendChild(sheetBuilders[s.id]());
+    main.appendChild(sheetDiv);
+  });
+  recalc();
+}
+init();
+</script>
+</body>
+</html>
