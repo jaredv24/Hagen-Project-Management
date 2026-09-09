@@ -68,8 +68,16 @@
   .panel-title{
     background:var(--navy); color:#fff; font-weight:700; font-size:13px;
     padding:9px 14px; letter-spacing:.3px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
   }
   .panel-title.blue{ background:var(--blue); }
+  .panel-title-text{ flex:1; }
+  .panel-include{
+    display:flex; align-items:center; gap:5px; font-size:10.5px; font-weight:500;
+    color:#dfe9f5; cursor:pointer; white-space:nowrap; letter-spacing:0;
+  }
+  .panel-include input{ cursor:pointer; margin:0; }
+  .panel.print-excluded{ opacity:.45; }
   .panel-body{ padding:14px 16px; }
   .panel-note{ padding:8px 16px 14px; color:var(--muted); font-size:11.5px; }
 
@@ -136,9 +144,81 @@
 
   footer{ text-align:center; color:var(--muted); font-size:11px; padding:20px; }
 
+  .print-btn{
+    background:#ffb238; color:#3a2400; border:none; font-weight:700; font-size:12.5px;
+    padding:8px 16px; border-radius:20px; cursor:pointer; margin-top:12px;
+  }
+  .print-btn:hover{ background:#ffc45f; }
+  .print-only{ display:none; }
+  .sheet-print-title{ margin:0 0 14px; font-size:18px; color:var(--navy); border-bottom:2px solid var(--navy); padding-bottom:6px; }
+  #print-meta{ display:none; }
+
+  /* =========================================================================
+     PRINT — turn the tool into a clean, paginated report
+     ========================================================================= */
   @media print{
-    .tabs{ display:none; }
-    .sheet{ display:block !important; page-break-after:always; }
+    @page{ size: letter portrait; margin: 0.55in 0.5in; }
+
+    .no-print{ display:none !important; }
+    .tabs{ display:none !important; }
+    body{ background:#fff; font-size:11px; }
+    main{ max-width:none; padding:0; margin:0; }
+
+    .app-header{
+      background:none !important; color:#000 !important; padding:0 0 10px; border-bottom:2px solid #000;
+      margin-bottom:10px;
+    }
+    .app-header h1{ font-size:18px; color:#000; }
+    .app-header p{ color:#333 !important; font-size:11px; }
+    .app-header .badges{ display:none; }
+
+    #print-meta{
+      display:flex; flex-wrap:wrap; gap:4px 22px; font-size:10.5px; color:#333;
+      border-bottom:1px solid #999; padding-bottom:8px; margin-bottom:14px;
+    }
+    #print-meta div{ white-space:nowrap; }
+    #print-meta b{ color:#000; }
+
+    .print-only{ display:block; }
+    .sheet{ display:block !important; page-break-after:always; break-after:page; }
+    .sheet:last-child{ page-break-after:auto; break-after:auto; }
+
+    .panel{ box-shadow:none; border:1px solid #999; break-inside:avoid; page-break-inside:avoid; margin-bottom:10px; }
+    .panel-title{ background:#eee !important; color:#000 !important; border-bottom:1px solid #999; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .panel-title.blue{ background:#eee !important; }
+    .panel-body{ padding:8px 10px; }
+    .panel-note{ font-size:9.5px; }
+
+    .field-grid{ grid-template-columns:repeat(3,1fr); gap:6px 14px; }
+    .study-point-header{ grid-template-columns:repeat(2,1fr); }
+    .grid-3{ grid-template-columns:repeat(3,1fr); gap:8px; }
+
+    /* Render inputs/selects as flat report text instead of form controls */
+    .field input[type=text], .field input[type=number], .field input[type=date], .field select,
+    table.data-table input, table.data-table select{
+      border:none !important; border-bottom:1px solid #999 !important; background:transparent !important;
+      color:#000 !important; padding:1px 0; border-radius:0; -webkit-appearance:none; appearance:none;
+    }
+    select{ background-image:none !important; }
+
+    .readout{ background:#f2f2f2 !important; border:1px solid #ccc; color:#000; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .status-pass, .status-good{ background:#e6f4e9 !important; color:#0f5c22 !important; border-color:#9ecfab !important; }
+    .status-fail, .status-bad{ background:#fbe4e4 !important; color:#8a1a16 !important; border-color:#e6a3a3 !important; }
+    .status-warn{ background:#fbeed4 !important; color:#7a5400 !important; border-color:#e0c07a !important; }
+    .status-banner{ border:1px solid #999; }
+
+    table.data-table{ font-size:8.5px; }
+    table.data-table th, table.data-table td{ padding:2px 3px; }
+    table.data-table input, table.data-table select{ font-size:8.5px; text-align:center; }
+    tr, table{ break-inside:avoid; page-break-inside:avoid; }
+
+    .chart-wrap{ break-inside:avoid; page-break-inside:avoid; }
+
+    footer{ display:none; }
+    .print-excluded{ display:none !important; }
+    :focus{ outline:none !important; }
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
+    input[type=number]{ -moz-appearance:textfield; }
   }
 </style>
 </head>
@@ -152,9 +232,19 @@
     <span>15A NCAC 18C .0409</span>
     <span>Live recalculation</span>
   </div>
+  <div class="no-print" style="margin-top:12px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+    <button class="print-btn" id="print-btn">🖨️ Print Report</button>
+    <span style="font-size:11.5px; color:var(--navy-text);">
+      Each section has an "Include in report" checkbox —
+      <a href="#" id="select-all-sections" style="color:#ffd98a;">select all</a> /
+      <a href="#" id="select-none-sections" style="color:#ffd98a;">select none</a>
+    </span>
+  </div>
 </div>
 
-<div class="tabs" id="tabs"></div>
+<div id="print-meta"></div>
+
+<div class="tabs no-print" id="tabs"></div>
 
 <main id="main"></main>
 
@@ -550,11 +640,54 @@ function readoutField(label, id, opts={}){
   return wrap;
 }
 
+/* Section (panel) title bar with a "include in report" checkbox that
+   controls whether this section prints. panelEl is the panel container
+   this title bar will be appended to (captured by closure so the
+   checkbox can toggle its print-excluded class directly). */
+let sectionCounter = 0;
+const printSections = {};
+function loadPrintSectionPrefs(){
+  try{ return JSON.parse(localStorage.getItem('fireflow-print-sections')||'{}'); } catch(e){ return {}; }
+}
+function savePrintSectionPrefs(){
+  try{ localStorage.setItem('fireflow-print-sections', JSON.stringify(printSections)); } catch(e){}
+}
+const savedPrintPrefs = loadPrintSectionPrefs();
+
+function panelTitle(panelEl, text, opts={}){
+  const id = 'sec-' + (sectionCounter++);
+  const included = savedPrintPrefs[id] !== false;
+  printSections[id] = included;
+  if(!included) panelEl.classList.add('print-excluded');
+
+  const bar = el('div',{class:'panel-title'+(opts.blue?' blue':'')});
+  bar.appendChild(el('span',{class:'panel-title-text'}, text));
+  const label = el('label',{class:'panel-include no-print'});
+  const cb = el('input',{type:'checkbox'});
+  cb.checked = included;
+  cb.addEventListener('change', ()=>{
+    printSections[id] = cb.checked;
+    panelEl.classList.toggle('print-excluded', !cb.checked);
+    savePrintSectionPrefs();
+  });
+  label.appendChild(cb);
+  label.appendChild(document.createTextNode('Include in report'));
+  bar.appendChild(label);
+  return bar;
+}
+
+function setAllPrintSections(included){
+  document.querySelectorAll('.panel-include input[type=checkbox]').forEach(cb=>{
+    cb.checked = included;
+    cb.dispatchEvent(new Event('change'));
+  });
+}
+
 /* ---- Project & Test Data ---- */
 function buildProjectSheet(){
   const c = el('div',{});
   const info = el('div',{class:'panel'});
-  info.appendChild(el('div',{class:'panel-title'},'PROJECT INFORMATION'));
+  info.appendChild(panelTitle(info, 'PROJECT INFORMATION'));
   const infoBody = el('div',{class:'panel-body field-grid'});
   infoBody.appendChild(textField('Project Name','project.projectName'));
   infoBody.appendChild(textField('Project Number','project.projectNumber'));
@@ -565,7 +698,7 @@ function buildProjectSheet(){
   c.appendChild(info);
 
   const test = el('div',{class:'panel'});
-  test.appendChild(el('div',{class:'panel-title'},'FIRE FLOW TEST DATA'));
+  test.appendChild(panelTitle(test, 'FIRE FLOW TEST DATA'));
   const testBody = el('div',{class:'panel-body field-grid'});
   testBody.appendChild(textField('Test Hydrant ID','project.testHydrantId'));
   testBody.appendChild(textField('Flow Hydrant ID','project.flowHydrantId'));
@@ -575,7 +708,7 @@ function buildProjectSheet(){
   c.appendChild(test);
 
   const results = el('div',{class:'panel'});
-  results.appendChild(el('div',{class:'panel-title'},'TEST RESULTS'));
+  results.appendChild(panelTitle(results, 'TEST RESULTS'));
   const resultsBody = el('div',{class:'panel-body field-grid'});
   resultsBody.appendChild(numberField('Test Hydrant Elevation','project.testHydrantElevation',{unit:'ft'}));
   resultsBody.appendChild(numberField('Static Pressure','project.staticPressure',{unit:'psi'}));
@@ -589,7 +722,7 @@ function buildProjectSheet(){
   c.appendChild(results);
 
   const dev = el('div',{class:'panel'});
-  dev.appendChild(el('div',{class:'panel-title'},'DEVELOPMENT TYPE & FIRE FLOW REQUIREMENTS'));
+  dev.appendChild(panelTitle(dev, 'DEVELOPMENT TYPE & FIRE FLOW REQUIREMENTS'));
   const devBody = el('div',{class:'panel-body field-grid'});
   devBody.appendChild(selectField('Development Type','project.developmentType',DEV_TYPE_OPTIONS));
   devBody.appendChild(numberField('Number of Stories','project.numberOfStories',{unit:'stories'},true));
@@ -616,7 +749,7 @@ function buildDomesticSheet(){
   c.appendChild(document.createElement('br'));
 
   const panel = el('div',{class:'panel'});
-  panel.appendChild(el('div',{class:'panel-title'},'DEMAND BY LAND USE / CONNECTION TYPE'));
+  panel.appendChild(panelTitle(panel, 'DEMAND BY LAND USE / CONNECTION TYPE'));
   const body = el('div',{class:'panel-body overflow-x'});
   const table = el('table',{class:'data-table'});
   table.appendChild(el('tr',{},[
@@ -648,7 +781,7 @@ function buildDomesticSheet(){
   c.appendChild(panel);
 
   const peak = el('div',{class:'panel'});
-  peak.appendChild(el('div',{class:'panel-title'},'PEAK DEMAND CALCULATION'));
+  peak.appendChild(panelTitle(peak, 'PEAK DEMAND CALCULATION'));
   const peakBody = el('div',{class:'panel-body field-grid'});
   peakBody.appendChild(numberField('Estimated Service Population','domestic.servicePopulation',{hint:'Enter total population served'}));
   peakBody.appendChild(readoutField('Peaking Factor (per NC DEQ)','out-peakingFactor'));
@@ -661,7 +794,7 @@ function buildDomesticSheet(){
   c.appendChild(peak);
 
   const final = el('div',{class:'panel'});
-  final.appendChild(el('div',{class:'panel-title blue'},'ESTIMATED PEAK DOMESTIC DEMAND FOR FIRE FLOW ANALYSIS'));
+  final.appendChild(panelTitle(final, 'ESTIMATED PEAK DOMESTIC DEMAND FOR FIRE FLOW ANALYSIS', {blue:true}));
   const finalBody = el('div',{class:'panel-body'});
   finalBody.appendChild(el('div',{class:'readout big', id:'out-peakDomesticDemand', style:'display:inline-block;padding:10px 18px;'}));
   final.appendChild(finalBody);
@@ -669,7 +802,7 @@ function buildDomesticSheet(){
   c.appendChild(final);
 
   const refPanel = el('div',{class:'panel'});
-  refPanel.appendChild(el('div',{class:'panel-title'},'NC DEMAND FACTORS — 15A NCAC 18C .0409 (Reference)'));
+  refPanel.appendChild(panelTitle(refPanel, 'NC DEMAND FACTORS — 15A NCAC 18C .0409 (Reference)'));
   const refBody = el('div',{class:'panel-body overflow-x'});
   const refTable = el('table',{class:'data-table'});
   refTable.appendChild(el('tr',{},[el('th',{},'Connection Type'),el('th',{},'Demand'),el('th',{},'Unit')]));
@@ -731,7 +864,7 @@ function buildStudyPointTable(spIndex){
 
 function buildStudyPointPanel(spIndex, title){
   const panel = el('div',{class:'panel'});
-  panel.appendChild(el('div',{class:'panel-title blue'},title));
+  panel.appendChild(panelTitle(panel, title, {blue:true}));
   const body = el('div',{class:'panel-body'});
   const header = el('div',{class:'study-point-header'});
   header.appendChild(textField('Location / Description', `headloss.studyPoints.${spIndex}.location`));
@@ -755,7 +888,7 @@ function buildHeadlossSheet(){
   const c = el('div',{});
 
   const materials = el('div',{class:'panel'});
-  materials.appendChild(el('div',{class:'panel-title'},'PIPE MATERIAL C-FACTORS (Reference)'));
+  materials.appendChild(panelTitle(materials, 'PIPE MATERIAL C-FACTORS (Reference)'));
   const matBody = el('div',{class:'panel-body overflow-x'});
   const matTable = el('table',{class:'data-table'});
   matTable.appendChild(el('tr',{},[el('th',{},'Material'),el('th',{},'C-Factor')]));
@@ -766,7 +899,7 @@ function buildHeadlossSheet(){
   c.appendChild(materials);
 
   const design = el('div',{class:'panel'});
-  design.appendChild(el('div',{class:'panel-title'},'DESIGN FLOW INPUTS'));
+  design.appendChild(panelTitle(design, 'DESIGN FLOW INPUTS'));
   const designBody = el('div',{class:'panel-body field-grid'});
   designBody.appendChild(numberField('Fire Flow Demand','headloss.fireFlowDemand',{unit:'gpm'}));
   designBody.appendChild(numberField('Peak Domestic Demand','headloss.peakDomesticDemand',{unit:'gpm'}));
@@ -778,7 +911,7 @@ function buildHeadlossSheet(){
   c.appendChild(design);
 
   const adjusted = el('div',{class:'panel'});
-  adjusted.appendChild(el('div',{class:'panel-title blue'},'ADJUSTED RESIDUAL AT DESIGN FLOW'));
+  adjusted.appendChild(panelTitle(adjusted, 'ADJUSTED RESIDUAL AT DESIGN FLOW', {blue:true}));
   const adjBody = el('div',{class:'panel-body field-grid'});
   adjBody.appendChild(readoutField('Adjusted Residual (psi)','out-adjustedResidual',{big:true}));
   adjusted.appendChild(adjBody);
@@ -796,7 +929,7 @@ function buildHeadlossSheet(){
 function buildSupplySheet(){
   const c = el('div',{});
   const top = el('div',{class:'panel'});
-  top.appendChild(el('div',{class:'panel-title'},'FLOW TEST DATA (from Project tab) & DEMAND POINT'));
+  top.appendChild(panelTitle(top, 'FLOW TEST DATA (from Project tab) & DEMAND POINT'));
   const topBody = el('div',{class:'panel-body field-grid'});
   topBody.appendChild(readoutField('Static Pressure (psi)','out-sc-static'));
   topBody.appendChild(readoutField('Residual Pressure (psi)','out-sc-residual'));
@@ -810,16 +943,21 @@ function buildSupplySheet(){
   c.appendChild(top);
 
   const chartPanel = el('div',{class:'panel'});
-  chartPanel.appendChild(el('div',{class:'panel-title blue'},'SUPPLY CURVE vs. DEMAND'));
+  chartPanel.appendChild(panelTitle(chartPanel, 'SUPPLY CURVE vs. DEMAND', {blue:true}));
   const chartBody = el('div',{class:'panel-body'});
   const chartWrap = el('div',{class:'chart-wrap'});
-  chartWrap.appendChild(el('svg',{id:'supply-chart', viewBox:'0 0 640 320', width:'100%', height:'320'}));
+  const svgNode = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svgNode.setAttribute('id','supply-chart');
+  svgNode.setAttribute('viewBox','0 0 640 320');
+  svgNode.setAttribute('width','100%');
+  svgNode.setAttribute('height','320');
+  chartWrap.appendChild(svgNode);
   chartBody.appendChild(chartWrap);
   chartPanel.appendChild(chartBody);
   c.appendChild(chartPanel);
 
   const tablePanel = el('div',{class:'panel'});
-  tablePanel.appendChild(el('div',{class:'panel-title'},'SUPPLY CURVE INTERPOLATION TABLE'));
+  tablePanel.appendChild(panelTitle(tablePanel, 'SUPPLY CURVE INTERPOLATION TABLE'));
   const tableBody = el('div',{class:'panel-body overflow-x'});
   const table = el('table',{class:'data-table'});
   table.appendChild(el('tr',{},[el('th',{},'Flow (gpm)'),el('th',{},'Pressure (psi)'),el('th',{},'P^1.85 Ratio'),el('th',{},'Status')]));
@@ -847,7 +985,7 @@ function buildUpperFloorSheet(){
   const grid = el('div',{class:'grid-3'});
 
   const site = el('div',{class:'panel'});
-  site.appendChild(el('div',{class:'panel-title'},'BUILDING & SITE INFORMATION'));
+  site.appendChild(panelTitle(site, 'BUILDING & SITE INFORMATION'));
   const siteBody = el('div',{class:'panel-body field-grid'});
   siteBody.appendChild(numberField('Number of Stories','upperFloor.numberOfStories'));
   siteBody.appendChild(numberField('Floor-to-Floor Height','upperFloor.floorToFloorHeight',{unit:'ft', hint:'Typical: 10 ft residential, 12-14 ft commercial ground floor'}));
@@ -857,7 +995,7 @@ function buildUpperFloorSheet(){
   grid.appendChild(site);
 
   const internal = el('div',{class:'panel'});
-  internal.appendChild(el('div',{class:'panel-title'},'BUILDING INTERNAL LOSSES (Riser)'));
+  internal.appendChild(panelTitle(internal, 'BUILDING INTERNAL LOSSES (Riser)'));
   const intBody = el('div',{class:'panel-body field-grid'});
   intBody.appendChild(numberField('Riser Pipe Diameter','upperFloor.riserDiameter',{unit:'in'}));
   intBody.appendChild(readoutField('Riser Pipe Length (ft)','out-uf-riserlength'));
@@ -871,7 +1009,7 @@ function buildUpperFloorSheet(){
   grid.appendChild(internal);
 
   const piping = el('div',{class:'panel'});
-  piping.appendChild(el('div',{class:'panel-title'},'BUILDING PIPING LOSSES'));
+  piping.appendChild(panelTitle(piping, 'BUILDING PIPING LOSSES'));
   const pipeBody = el('div',{class:'panel-body field-grid'});
   pipeBody.appendChild(numberField('Domestic Flow to Building','upperFloor.domesticFlowToBuilding',{unit:'gpm', hint:'Typical: 15-30 gpm per building'}));
   pipeBody.appendChild(numberField('Bldg Supply Pipe Diameter','upperFloor.bldgSupplyDiameter',{unit:'in'}));
@@ -887,7 +1025,7 @@ function buildUpperFloorSheet(){
   c.appendChild(grid);
 
   const fixture = el('div',{class:'panel'});
-  fixture.appendChild(el('div',{class:'panel-title blue'},'PRESSURE AT TOP FLOOR FIXTURE'));
+  fixture.appendChild(panelTitle(fixture, 'PRESSURE AT TOP FLOOR FIXTURE', {blue:true}));
   const fixtureBody = el('div',{class:'panel-body'});
   const rows = [
     ['Static Pressure at Hydrant','out-uf-static'],
@@ -908,14 +1046,14 @@ function buildUpperFloorSheet(){
   c.appendChild(fixture);
 
   const status = el('div',{class:'panel'});
-  status.appendChild(el('div',{class:'panel-title'},'DOMESTIC PRESSURE STATUS'));
+  status.appendChild(panelTitle(status, 'DOMESTIC PRESSURE STATUS'));
   const statusBody = el('div',{class:'panel-body'});
   statusBody.appendChild(el('div',{class:'status-banner', id:'out-uf-status'}));
   status.appendChild(statusBody);
   c.appendChild(status);
 
   const booster = el('div',{class:'panel'});
-  booster.appendChild(el('div',{class:'panel-title'},'BOOSTER PUMP RECOMMENDATION'));
+  booster.appendChild(panelTitle(booster, 'BOOSTER PUMP RECOMMENDATION'));
   const boosterBody = el('div',{class:'panel-body field-grid'});
   boosterBody.appendChild(readoutField('Booster Pump Required?','out-uf-boosterrequired'));
   boosterBody.appendChild(readoutField('Minimum Boost Required (psi)','out-uf-minboost',{hint:'Includes 10 psi safety margin'}));
@@ -924,7 +1062,7 @@ function buildUpperFloorSheet(){
   c.appendChild(booster);
 
   const ref = el('div',{class:'panel'});
-  ref.appendChild(el('div',{class:'panel-title'},'ELEVATION HEAD LOSS QUICK REFERENCE'));
+  ref.appendChild(panelTitle(ref, 'ELEVATION HEAD LOSS QUICK REFERENCE'));
   const refBody = el('div',{class:'panel-body overflow-x'});
   const refTable = el('table',{class:'data-table'});
   refTable.appendChild(el('tr',{},[el('th',{},'Stories'),el('th',{},'Height to Top Fixture (ft)'),el('th',{},'Elevation Loss (psi)'),el('th',{},'Pressure Needed at Grade (psi)')]));
@@ -943,7 +1081,7 @@ function buildResultsSheet(){
   const grid = el('div',{style:'display:grid;grid-template-columns:1.3fr 1fr;gap:16px;'});
 
   const spPanel = el('div',{class:'panel'});
-  spPanel.appendChild(el('div',{class:'panel-title'},'STUDY POINT COMPARISON'));
+  spPanel.appendChild(panelTitle(spPanel, 'STUDY POINT COMPARISON'));
   const spBody = el('div',{class:'panel-body overflow-x'});
   const spTable = el('table',{class:'data-table'});
   spTable.appendChild(el('tr',{},[el('th',{},''),el('th',{},'Study Point 1'),el('th',{},'Study Point 2'),el('th',{},'Study Point 3')]));
@@ -963,7 +1101,7 @@ function buildResultsSheet(){
   grid.appendChild(spPanel);
 
   const recPanel = el('div',{class:'panel'});
-  recPanel.appendChild(el('div',{class:'panel-title blue'},'RECOMMENDATIONS & NOTES'));
+  recPanel.appendChild(panelTitle(recPanel, 'RECOMMENDATIONS & NOTES', {blue:true}));
   const recBody = el('div',{class:'panel-body'});
   recBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'Booster Pump Required?'), el('span',{class:'val', id:'res-boosterrequired'},'')]));
   recBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'If required, minimum boost (+5 psi margin):'), el('span',{class:'val', id:'res-minboost'},'')]));
@@ -973,7 +1111,7 @@ function buildResultsSheet(){
   c.appendChild(grid);
 
   const controlling = el('div',{class:'panel'});
-  controlling.appendChild(el('div',{class:'panel-title'},'CONTROLLING (WORST-CASE) STUDY POINT'));
+  controlling.appendChild(panelTitle(controlling, 'CONTROLLING (WORST-CASE) STUDY POINT'));
   const ctrlBody = el('div',{class:'panel-body field-grid'});
   ctrlBody.appendChild(readoutField('Lowest Residual Pressure (psi)','res-lowest'));
   ctrlBody.appendChild(readoutField('Controlling Study Point','res-controllingpoint'));
@@ -983,14 +1121,14 @@ function buildResultsSheet(){
   c.appendChild(controlling);
 
   const status = el('div',{class:'panel'});
-  status.appendChild(el('div',{class:'panel-title'},'OVERALL FIRE FLOW STATUS'));
+  status.appendChild(panelTitle(status, 'OVERALL FIRE FLOW STATUS'));
   const statusBody = el('div',{class:'panel-body'});
   statusBody.appendChild(el('div',{class:'status-banner', id:'res-overallstatus'}));
   status.appendChild(statusBody);
   c.appendChild(status);
 
   const guidance = el('div',{class:'panel'});
-  guidance.appendChild(el('div',{class:'panel-title'},'DEVELOPMENT-SPECIFIC GUIDANCE'));
+  guidance.appendChild(panelTitle(guidance, 'DEVELOPMENT-SPECIFIC GUIDANCE'));
   const guidanceBody = el('div',{class:'panel-body'});
   guidanceBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'Development Type:'), el('span',{class:'val', id:'res-devtype'},'')]));
   guidanceBody.appendChild(el('div',{class:'summary-row'},[el('span',{class:'lbl'},'Required Fire Flow:'), el('span',{class:'val', id:'res-reqfireflow'},'')]));
@@ -1001,7 +1139,7 @@ function buildResultsSheet(){
   c.appendChild(guidance);
 
   const notes = el('div',{class:'panel'});
-  notes.appendChild(el('div',{class:'panel-title'},'ENGINEERING NOTES & SOFTWARE RECOMMENDATIONS'));
+  notes.appendChild(panelTitle(notes, 'ENGINEERING NOTES & SOFTWARE RECOMMENDATIONS'));
   const notesBody = el('div',{class:'panel-body'});
   notesBody.appendChild(el('p',{},'This spreadsheet-derived tool provides steady-state analysis using the Hazen-Williams equation for 3 study points. For complex networks, consider dedicated hydraulic modeling software:'));
   const list = el('ol',{class:'rec-list'});
@@ -1032,7 +1170,7 @@ function buildIfcSheet(){
   c.appendChild(document.createElement('br'));
 
   const t1 = el('div',{class:'panel'});
-  t1.appendChild(el('div',{class:'panel-title'},'TABLE B105.1(1) — 1 & 2 FAMILY DWELLINGS (2015 IFC)'));
+  t1.appendChild(panelTitle(t1, 'TABLE B105.1(1) — 1 & 2 FAMILY DWELLINGS (2015 IFC)'));
   const t1Body = el('div',{class:'panel-body overflow-x'});
   const t1Table = el('table',{class:'data-table'});
   t1Table.appendChild(el('tr',{},[el('th',{},'Building Area (sq ft)'),el('th',{},'Fire Flow (gpm)'),el('th',{},'Duration (hrs)')]));
@@ -1043,7 +1181,7 @@ function buildIfcSheet(){
   c.appendChild(t1);
 
   const legend = el('div',{class:'panel'});
-  legend.appendChild(el('div',{class:'panel-title'},'IBC CONSTRUCTION TYPE CLASSIFICATION LEGEND'));
+  legend.appendChild(panelTitle(legend, 'IBC CONSTRUCTION TYPE CLASSIFICATION LEGEND'));
   const legendBody = el('div',{class:'panel-body overflow-x'});
   const legendTable = el('table',{class:'data-table'});
   legendTable.appendChild(el('tr',{},[el('th',{},'Type'),el('th',{},'Rating'),el('th',{},'Structural Frame'),el('th',{},'Bearing Walls (Ext.)'),el('th',{},'Bearing Walls (Int.)'),el('th',{},'Typical Use')]));
@@ -1054,7 +1192,7 @@ function buildIfcSheet(){
   c.appendChild(legend);
 
   const t2 = el('div',{class:'panel'});
-  t2.appendChild(el('div',{class:'panel-title'},'TABLE B105.1(2) — REQUIRED FIRE-FLOW FOR BUILDINGS OTHER THAN 1 & 2 FAMILY DWELLINGS (2015 IFC)'));
+  t2.appendChild(panelTitle(t2, 'TABLE B105.1(2) — REQUIRED FIRE-FLOW FOR BUILDINGS OTHER THAN 1 & 2 FAMILY DWELLINGS (2015 IFC)'));
   const t2Body = el('div',{class:'panel-body overflow-x'});
   const t2Table = el('table',{class:'data-table'});
   t2Table.appendChild(el('tr',{},[el('th',{},'Type I-A / I-B'),el('th',{},'Type II-A / III-A'),el('th',{},'Type IV / V-A'),el('th',{},'Type II-B / III-B'),el('th',{},'Type V-B'),el('th',{},'Fire-Flow (gpm)'),el('th',{},'Duration (hrs)')]));
@@ -1240,6 +1378,27 @@ function render(){
   setText('res-reqfireflow', fmtInt(p.requiredFireFlow)+' gpm');
   setText('res-reqduration', fmt(p.requiredDuration,1)+' hrs');
   setText('res-sprinklered', state.project.sprinklerSystem);
+
+  updatePrintMeta();
+}
+
+function updatePrintMeta(){
+  const meta = document.getElementById('print-meta');
+  if(!meta) return;
+  const pr = state.project;
+  const rows = [
+    ['Project', pr.projectName || '—'],
+    ['Project #', pr.projectNumber || '—'],
+    ['Location', pr.location || '—'],
+    ['Engineer', pr.engineer || '—'],
+    ['Date', pr.date || '—'],
+    ['Overall Fire Flow Status', computed.results ? computed.results.overallStatus : '—'],
+    ['Report Generated', new Date().toLocaleString()]
+  ];
+  meta.innerHTML='';
+  rows.forEach(([label,val])=>{
+    meta.appendChild(el('div',{},[el('b',{}, label+': '), document.createTextNode(val)]));
+  });
 }
 
 /* =========================================================================
@@ -1264,9 +1423,13 @@ function init(){
     tabs.appendChild(btn);
 
     const sheetDiv = el('div',{class:'sheet'+(i===0?' active':''), id:'sheet-'+s.id});
+    sheetDiv.appendChild(el('h2',{class:'print-only sheet-print-title'}, s.title));
     sheetDiv.appendChild(sheetBuilders[s.id]());
     main.appendChild(sheetDiv);
   });
+  document.getElementById('print-btn').addEventListener('click', ()=> window.print());
+  document.getElementById('select-all-sections').addEventListener('click', (e)=>{ e.preventDefault(); setAllPrintSections(true); });
+  document.getElementById('select-none-sections').addEventListener('click', (e)=>{ e.preventDefault(); setAllPrintSections(false); });
   recalc();
 }
 init();
